@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # </search_files>
     # """
     # print(run(xml_example, current_working_directory))
-    
+
     xml_example = """
     <search_files>
     <args>
@@ -85,4 +85,5 @@ if __name__ == "__main__":
     </args>
     </search_files>
     """
-    print(run(xml_example, current_working_directory))
+    result = run(xml_example, current_working_directory)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
