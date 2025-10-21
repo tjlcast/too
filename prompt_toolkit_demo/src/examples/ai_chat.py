@@ -7,22 +7,94 @@ It demonstrates how to create a chatbot-like experience with:
 - Continuous conversation loop
 - Multi-line input support
 - Custom key bindings
-- Simulated AI responses
+- Real AI responses using chat/completion API with streaming
 """
 
 import random
 import time
+import os
+import sys
+from typing import List, Dict
+import json
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from prompt_toolkit.history import FileHistory
+import urllib.request
+import urllib.parse
 
 
-def simulate_ai_response(user_input):
+def load_env_config():
+    """Load configuration from .env file."""
+    # Fixed path resolution to correctly find .env file
+    env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+    config = {}
+    
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    config[key] = value.strip('"\'')
+    
+    return config
+
+
+def call_ai_api(messages: List[Dict[str, str]], config: dict):
     """
-    Simulate an AI response based on user input.
-    In a real application, this would call an actual AI model API.
+    Call the AI API with streaming response.
+    Yields chunks of the response as they arrive.
+    """
+    api_base_url = config.get('API_BASE_URL', 'https://api.openai.com/v1')
+    api_key = config.get('API_KEY', '')
+    model = config.get('API_MODEL', 'gpt-3.5-turbo')
+    
+    if not api_key or api_key == 'your-api-key-here':
+        # Fallback to simulated response if no API key configured
+        yield from simulate_ai_response_streaming(messages[-1]['content'])
+        return
+    
+    url = f"{api_base_url}/chat/completions"
+    
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    
+    data = {
+        'model': model,
+        'messages': messages,
+        'stream': True
+    }
+    
+    json_data = json.dumps(data).encode('utf-8')
+    
+    req = urllib.request.Request(url, data=json_data, headers=headers, method='POST')
+    
+    try:
+        response = urllib.request.urlopen(req)
+        for line in response:
+            line = line.decode('utf-8').strip()
+            if line.startswith('data: ') and line != 'data: [DONE]':
+                data_str = line[6:]  # Remove 'data: ' prefix
+                try:
+                    chunk_data = json.loads(data_str)
+                    if 'choices' in chunk_data and len(chunk_data['choices']) > 0:
+                        delta = chunk_data['choices'][0].get('delta', {})
+                        if 'content' in delta:
+                            yield delta['content']
+                except json.JSONDecodeError:
+                    continue
+    except Exception as e:
+        yield f"[Error calling API: {str(e)}]\n"
+
+
+def simulate_ai_response_streaming(user_input: str):
+    """
+    Simulate a streaming AI response based on user input.
+    In a real application, this would be replaced by actual API streaming.
     """
     # Simple response simulation based on keywords
     user_input = user_input.lower()
@@ -69,15 +141,41 @@ def simulate_ai_response(user_input):
             "Interesting perspective. Can you elaborate on that?",
         ]
     
-    # Simulate thinking delay
-    time.sleep(random.uniform(0.5, 2.0))
+    response = random.choice(responses)
     
-    return random.choice(responses)
+    # Simulate streaming by yielding parts of the response
+    words = response.split(' ')
+    for i, word in enumerate(words):
+        # Simulate varying delays between words
+        if i > 0:
+            time.sleep(random.uniform(0.05, 0.2))
+        yield word + (' ' if i < len(words) - 1 else '')
+
+
+def display_streaming_response(generator):
+    """
+    Display streaming response in real-time.
+    Returns the full response.
+    """
+    from prompt_toolkit import print_formatted_text
+    
+    full_response = ""
+    print_formatted_text(HTML('<ansiblue>AI:</ansiblue> '), end='', flush=True)
+    
+    for chunk in generator:
+        print(chunk, end='', flush=True)
+        full_response += chunk
+    
+    print()  # New line after response
+    return full_response
 
 
 def run():
     """Run the AI chat simulation example."""
     print("=== AI Chat Simulation Example ===\\n")
+    
+    # Load API configuration
+    config = load_env_config()
     
     # Define custom style
     style = Style.from_dict({
@@ -107,8 +205,9 @@ def run():
     @bindings.add('c-r')
     def _(event):
         """Reset the conversation."""
-        nonlocal conversation_history
+        nonlocal conversation_history, messages
         conversation_history = []
+        messages = []
         print("\\n" + "="*50)
         print("Conversation history cleared.")
         print("="*50)
@@ -128,6 +227,7 @@ def run():
     
     # Initialize conversation history
     conversation_history = []
+    messages = []
     
     # Main conversation loop
     while True:
@@ -150,15 +250,15 @@ def run():
                 
             # Store user message in history
             conversation_history.append(f"You: {user_message}")
+            messages.append({"role": "user", "content": user_message})
             
             # Get AI response
-            ai_response = simulate_ai_response(user_message)
-            
-            # Display AI response
-            print(HTML(f'<ansiblue>AI:</ansiblue> {ai_response}'))
+            response_generator = call_ai_api(messages, config)
+            ai_response = display_streaming_response(response_generator)
             
             # Store AI response in history
             conversation_history.append(f"AI: {ai_response}")
+            messages.append({"role": "assistant", "content": ai_response})
             print()  # Empty line for readability
             
         except KeyboardInterrupt:
