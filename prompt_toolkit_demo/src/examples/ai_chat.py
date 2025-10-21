@@ -16,6 +16,7 @@ import os
 import sys
 from typing import List, Dict
 import json
+from datetime import datetime
 from prompt_toolkit import prompt
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
@@ -205,8 +206,7 @@ def run():
     @bindings.add('c-r')
     def _(event):
         """Reset the conversation."""
-        nonlocal conversation_history, messages
-        conversation_history = []
+        nonlocal messages
         messages = []
         print("\\n" + "="*50)
         print("Conversation history cleared.")
@@ -225,47 +225,60 @@ def run():
     print("=" * 50)
     print()
     
-    # Initialize conversation history
-    conversation_history = []
+    # Initialize conversation history (using messages list for both internal state and saving)
     messages = []
     
     # Main conversation loop
-    while True:
-        try:
-            user_message = prompt(
-                HTML('<ansigreen>You:</ansigreen> '),
-                multiline=True,
-                key_bindings=bindings,
-                history=FileHistory('.ai_chat_history'),
-                style=style
-            ).strip()
-            
-            # Check for exit conditions
-            if user_message.lower() in ['quit', 'exit', 'bye']:
-                print(HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
-                break
-            
-            if not user_message:
-                continue
+    try:
+        while True:
+            try:
+                user_message = prompt(
+                    HTML('<ansigreen>You:</ansigreen> '),
+                    multiline=True,
+                    key_bindings=bindings,
+                    style=style
+                ).strip()
                 
-            # Store user message in history
-            conversation_history.append(f"You: {user_message}")
-            messages.append({"role": "user", "content": user_message})
-            
-            # Get AI response
-            response_generator = call_ai_api(messages, config)
-            ai_response = display_streaming_response(response_generator)
-            
-            # Store AI response in history
-            conversation_history.append(f"AI: {ai_response}")
-            messages.append({"role": "assistant", "content": ai_response})
-            print()  # Empty line for readability
-            
-        except KeyboardInterrupt:
-            print("\\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
-            break
-        except EOFError:
-            print("\\n" + HTML('<ansired>Chat ended. Goodbye!</ansired>'))
-            break
+                # Check for exit conditions
+                if user_message.lower() in ['quit', 'exit', 'bye']:
+                    print(HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
+                    break
+                
+                if not user_message:
+                    continue
+                    
+                # Store user message in history with timestamp
+                messages.append({"role": "user", "content": user_message, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                
+                # Get AI response
+                response_generator = call_ai_api(messages, config)
+                ai_response = display_streaming_response(response_generator)
+                
+                # Store AI response in history with timestamp
+                messages.append({"role": "assistant", "content": ai_response, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                
+                # Immediately save the latest exchange to file
+                try:
+                    with open('.ai_chat_history', 'a', encoding='utf-8') as f:
+                        user_entry = messages[-2]  # Last user message
+                        ai_entry = messages[-1]     # Last AI response
+                        
+                        f.write(f"[User] [{user_entry['timestamp']}]: {user_entry['content']}\n")
+                        f.write(f"[AI] [{ai_entry['timestamp']}]: {ai_entry['content']}\n")
+                        f.write("\n")  # Empty line between exchanges
+                except Exception as e:
+                    print(f"Failed to save conversation exchange: {e}")
+                
+                print()  # Empty line for readability
+                
+            except KeyboardInterrupt:
+                print("\\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
+                break
+            except EOFError:
+                print("\\n" + HTML('<ansired>Chat ended. Goodbye!</ansired>'))
+                break
+    finally:
+        # Conversation is saved incrementally, no need to save at exit
+        pass
     
-    input("\\nPress Enter to continue...")
+    input("\nPress Enter to continue...")

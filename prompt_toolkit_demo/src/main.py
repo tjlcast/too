@@ -22,6 +22,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
+from prompt_toolkit import print_formatted_text
 
 
 # Demo modules will be added later
@@ -53,7 +54,7 @@ def main_menu():
 
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
-        print(HTML('<b>Prompt Toolkit Comprehensive Demo</b>'))
+        print_formatted_text(HTML('<b>Prompt Toolkit Comprehensive Demo</b>'))
         print("=" * 50)
         print()
 
