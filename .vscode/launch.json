@@ -16,6 +16,14 @@
             "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.read_file.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run List Files Tool",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.list_files.run",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }
