@@ -12,38 +12,38 @@ from prompt_toolkit.formatted_text import HTML
 def run():
     """Run the dialogs example."""
     print("=== Dialogs Example ===\n")
-    
+
     # Message dialog
     print("1. Message dialog:")
     message_dialog(
         title='Information',
         text='This is a simple message dialog.\nPress OK to continue.'
     ).run()
-    
+
     # Input dialog
     print("\n2. Input dialog:")
     name = input_dialog(
         title='Input Dialog',
         text='Please enter your name:'
     ).run()
-    
+
     if name:
         print(f"Hello, {name}!")
     else:
         print("No name entered.")
-    
+
     # Yes/No dialog
     print("\n3. Yes/No dialog:")
     result = yes_no_dialog(
         title='Confirmation',
         text='Do you want to continue?'
     ).run()
-    
+
     if result:
         print("You chose to continue!")
     else:
         print("You chose not to continue.")
-    
+
     # Button dialog
     print("\n4. Button dialog:")
     choice = button_dialog(
@@ -56,12 +56,12 @@ def run():
             ('Cancel', None)
         ]
     ).run()
-    
+
     if choice:
         print(f"You selected color: {choice}")
     else:
         print("Selection cancelled.")
-    
+
     # Complex dialog with HTML
     print("\n5. Complex dialog with HTML:")
     result = yes_no_dialog(
@@ -69,7 +69,7 @@ def run():
         text=HTML('Do you want to delete <b>all</b> files?\n'
                   '<red>This action cannot be undone!</red>')
     ).run()
-    
+
     if result:
         message_dialog(
             title='Success',
@@ -80,5 +80,5 @@ def run():
             title='Cancelled',
             text='Operation was cancelled.'
         ).run()
-    
+
     input("\nPress Enter to continue...")

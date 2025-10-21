@@ -23,7 +23,7 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from prompt_toolkit.history import FileHistory
 import urllib.request
-import urllib.parse
+from prompt_toolkit import print_formatted_text
 
 
 def load_env_config():
@@ -31,7 +31,7 @@ def load_env_config():
     # Fixed path resolution to correctly find .env file
     env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
     config = {}
-    
+
     if os.path.exists(env_path):
         with open(env_path, 'r') as f:
             for line in f:
@@ -39,7 +39,7 @@ def load_env_config():
                 if line and not line.startswith('#'):
                     key, value = line.split('=', 1)
                     config[key] = value.strip('"\'')
-    
+
     return config
 
 
@@ -51,29 +51,30 @@ def call_ai_api(messages: List[Dict[str, str]], config: dict):
     api_base_url = config.get('API_BASE_URL', 'https://api.openai.com/v1')
     api_key = config.get('API_KEY', '')
     model = config.get('API_MODEL', 'gpt-3.5-turbo')
-    
+
     if not api_key or api_key == 'your-api-key-here':
         # Fallback to simulated response if no API key configured
         yield from simulate_ai_response_streaming(messages[-1]['content'])
         return
-    
+
     url = f"{api_base_url}/chat/completions"
-    
+
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
     }
-    
+
     data = {
         'model': model,
         'messages': messages,
         'stream': True
     }
-    
+
     json_data = json.dumps(data).encode('utf-8')
-    
-    req = urllib.request.Request(url, data=json_data, headers=headers, method='POST')
-    
+
+    req = urllib.request.Request(
+        url, data=json_data, headers=headers, method='POST')
+
     try:
         response = urllib.request.urlopen(req)
         for line in response:
@@ -99,7 +100,7 @@ def simulate_ai_response_streaming(user_input: str):
     """
     # Simple response simulation based on keywords
     user_input = user_input.lower()
-    
+
     if 'hello' in user_input or 'hi' in user_input:
         responses = [
             "Hello there! How can I assist you today?",
@@ -141,9 +142,9 @@ def simulate_ai_response_streaming(user_input: str):
             "I see. What else would you like to discuss?",
             "Interesting perspective. Can you elaborate on that?",
         ]
-    
+
     response = random.choice(responses)
-    
+
     # Simulate streaming by yielding parts of the response
     words = response.split(' ')
     for i, word in enumerate(words):
@@ -159,14 +160,14 @@ def display_streaming_response(generator):
     Returns the full response.
     """
     from prompt_toolkit import print_formatted_text
-    
+
     full_response = ""
     print_formatted_text(HTML('<ansiblue>AI:</ansiblue> '), end='', flush=True)
-    
+
     for chunk in generator:
         print(chunk, end='', flush=True)
         full_response += chunk
-    
+
     print()  # New line after response
     return full_response
 
@@ -174,10 +175,10 @@ def display_streaming_response(generator):
 def run():
     """Run the AI chat simulation example."""
     print("=== AI Chat Simulation Example ===\\n")
-    
+
     # Load API configuration
     config = load_env_config()
-    
+
     # Define custom style
     style = Style.from_dict({
         'prompt': '#00ff00 bold',     # Green prompt
@@ -185,10 +186,10 @@ def run():
         'info': '#ffff00',            # Yellow info text
         'error': '#ff0000 bold',      # Red error text
     })
-    
+
     # Custom key bindings
     bindings = KeyBindings()
-    
+
     @bindings.add('c-c')
     def _(event):
         """Clear the current input or exit."""
@@ -197,12 +198,12 @@ def run():
             buffer.reset()
         else:
             event.app.exit(result=None)
-    
+
     @bindings.add('c-d')
     def _(event):
         """Exit the chat."""
         event.app.exit(result=None)
-    
+
     @bindings.add('c-r')
     def _(event):
         """Reset the conversation."""
@@ -211,12 +212,13 @@ def run():
         print("\\n" + "="*50)
         print("Conversation history cleared.")
         print("="*50)
-    
+
     # Print instructions
-    print(HTML('<ansiyellow>AI Chat Interface</ansiyellow>'))
+    print_formatted_text(HTML('<ansiyellow>AI Chat Interface</ansiyellow>'))
     print("=" * 50)
     print("Type your message and press [Enter] to send.")
-    print("Press [Alt+Enter] or [Esc] followed by [Enter] for multi-line messages.")
+    print(
+        "Press [Alt+Enter] or [Esc] followed by [Enter] for multi-line messages.")
     print()
     print("Special key bindings:")
     print("  Ctrl+C - Clear current input or exit if empty")
@@ -224,10 +226,10 @@ def run():
     print("  Ctrl+R - Reset conversation history")
     print("=" * 50)
     print()
-    
+
     # Initialize conversation history (using messages list for both internal state and saving)
     messages = []
-    
+
     # Main conversation loop
     try:
         while True:
@@ -238,47 +240,54 @@ def run():
                     key_bindings=bindings,
                     style=style
                 ).strip()
-                
+
                 # Check for exit conditions
                 if user_message.lower() in ['quit', 'exit', 'bye']:
-                    print(HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
+                    print_formatted_text(
+                        HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
                     break
-                
+
                 if not user_message:
                     continue
-                    
+
                 # Store user message in history with timestamp
-                messages.append({"role": "user", "content": user_message, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                
+                messages.append({"role": "user", "content": user_message,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+
                 # Get AI response
                 response_generator = call_ai_api(messages, config)
                 ai_response = display_streaming_response(response_generator)
-                
+
                 # Store AI response in history with timestamp
-                messages.append({"role": "assistant", "content": ai_response, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                
+                messages.append({"role": "assistant", "content": ai_response,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+
                 # Immediately save the latest exchange to file
                 try:
                     with open('.ai_chat_history', 'a', encoding='utf-8') as f:
                         user_entry = messages[-2]  # Last user message
                         ai_entry = messages[-1]     # Last AI response
-                        
-                        f.write(f"[User] [{user_entry['timestamp']}]: {user_entry['content']}\n")
-                        f.write(f"[AI] [{ai_entry['timestamp']}]: {ai_entry['content']}\n")
+
+                        f.write(
+                            f"[User] [{user_entry['timestamp']}]: {user_entry['content']}\n")
+                        f.write(
+                            f"[AI] [{ai_entry['timestamp']}]: {ai_entry['content']}\n")
                         f.write("\n")  # Empty line between exchanges
                 except Exception as e:
                     print(f"Failed to save conversation exchange: {e}")
-                
+
                 print()  # Empty line for readability
-                
+
             except KeyboardInterrupt:
-                print("\\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
+                print_formatted_text(
+                    "\\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
                 break
             except EOFError:
-                print("\\n" + HTML('<ansired>Chat ended. Goodbye!</ansired>'))
+                print_formatted_text(
+                    "\\n" + HTML('<ansired>Chat ended. Goodbye!</ansired>'))
                 break
     finally:
         # Conversation is saved incrementally, no need to save at exit
         pass
-    
+
     input("\nPress Enter to continue...")

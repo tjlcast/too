@@ -85,10 +85,12 @@ def main_menu():
             if selected_example:
                 # Import and run the selected example
                 try:
-                    module = __import__(f'examples.{selected_example}', fromlist=['run'])
+                    module = __import__(
+                        f'examples.{selected_example}', fromlist=['run'])
                     module.run()
                 except ImportError:
-                    print(f"Example {selected_example} not found or not implemented yet.")
+                    print(
+                        f"Example {selected_example} not found or not implemented yet.")
                     input("Press Enter to continue...")
             else:
                 print("Invalid option. Please try again.")
