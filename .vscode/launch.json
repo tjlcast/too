@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Search Files Tool",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.search_files.run",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Read File Tool",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.read_file.run",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
