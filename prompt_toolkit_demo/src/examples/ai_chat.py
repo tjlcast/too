@@ -54,6 +54,8 @@ def call_ai_api(messages: List[Dict[str, str]], config: dict):
 
     if not api_key or api_key == 'your-api-key-here':
         # Fallback to simulated response if no API key configured
+        raise Exception(
+            "No API key configured. Please set API_KEY in .env file.")
         yield from simulate_ai_response_streaming(messages[-1]['content'])
         return
 
@@ -234,6 +236,24 @@ def run():
     try:
         while True:
             try:
+                # 在用户输入前显示一些上下文信息
+                if messages:
+                    # 显示对话历史统计
+                    user_messages = [
+                        m for m in messages if m["role"] == "user"]
+                    ai_messages = [
+                        m for m in messages if m["role"] == "assistant"]
+                    print_formatted_text(HTML(
+                        f'<ansiwhite>Context: Conversation history - {len(user_messages)} user messages, {len(ai_messages)} AI responses</ansiwhite>'))
+                else:
+                    print_formatted_text(
+                        HTML('<ansiwhite>Context: Starting new conversation</ansiwhite>'))
+
+                # 也可以显示当前时间或其他信息
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print_formatted_text(
+                    HTML(f'<ansicyan>Current time: {current_time}</ansicyan>'))
+
                 user_message = prompt(
                     HTML('<ansigreen>You:</ansigreen> '),
                     multiline=True,
