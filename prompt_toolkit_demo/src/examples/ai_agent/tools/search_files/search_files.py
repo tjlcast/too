@@ -79,10 +79,25 @@ def _search_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                             
                         # Find all matches in the file
                         matches = []
-                        for i, line in enumerate(content.split('\n'), 1):
+                        lines = content.split('\n')
+                        for i, line in enumerate(lines, 1):
                             if pattern.search(line):
-                                # Add context (line with line number)
-                                matches.append(f"{i} | {line}")
+                                # Collect context lines (previous, current, and next line)
+                                context_parts = []
+                                
+                                # Add previous line if it exists
+                                if i > 1:
+                                    context_parts.append(f"{str(i-1).ljust(5)} | {lines[i-2]}")
+                                
+                                # Add current matching line
+                                context_parts.append(f"{str(i).ljust(5)} | {line}")
+                                
+                                # Add next line if it exists
+                                if i < len(lines):
+                                    context_parts.append(f"{str(i+1).ljust(5)} | {lines[i]}")
+                                
+                                # Join all context lines into a single entry
+                                matches.append("\n".join(context_parts))
                         
                         if matches:
                             # Get relative path from search root

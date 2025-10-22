@@ -6,7 +6,7 @@ import json
 from .search_files import search_files
 
 
-def run(xml_string: str, basePath: str = None) -> Dict[str, Any]:
+def run(xml_string: str, basePath: str = None) -> str:
     """
     ## search_files
     Description: Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.
@@ -57,7 +57,43 @@ def run(xml_string: str, basePath: str = None) -> Dict[str, Any]:
     </args>
     </search_files>
     """
-    return search_files(xml_string, basePath)
+    result = search_files(xml_string, basePath)
+    
+    # 如果有错误，直接返回错误信息
+    if "error" in result:
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    
+    # 格式化输出结果
+    results = result.get("results", [])
+    if not results:
+        return "Found 0 results."
+    
+    # 按文件路径分组结果
+    file_groups = {}
+    total_matches = 0
+    
+    for res in results:
+        path = res.get("path", "")
+        matches = res.get("matches", [])
+        total_matches += len(matches)
+        
+        if path not in file_groups:
+            file_groups[path] = []
+        file_groups[path].extend(matches)
+    
+    output_lines = [f"Found {total_matches} results.\n"]
+    
+    # 为每个文件输出所有匹配项
+    for path, matches in file_groups.items():
+        output_lines.append(f"# {path}")
+        for match in matches:
+            # 添加匹配行，确保正确缩进
+            for line in match.split('\n'):
+                output_lines.append(f" {line}")
+            output_lines.append("----")
+        output_lines.append('\n')
+        
+    return '\n'.join(output_lines)
 
 
 # For testing purposes
@@ -80,10 +116,10 @@ if __name__ == "__main__":
     <search_files>
     <args>
     <path>prompt_toolkit_demo/src</path>
-    <regex>.*</regex>
+    <regex>for</regex>
     <file_pattern>*.py</file_pattern>
     </args>
     </search_files>
     """
     result = run(xml_example, current_working_directory)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(result)
