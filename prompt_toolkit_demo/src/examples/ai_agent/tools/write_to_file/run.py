@@ -18,7 +18,8 @@ def run(xml_string: str, basePath: str = None) -> str:
     if results:
         file_result = results[0]  # 只处理第一个文件
         path = file_result.get("path", "")
-        operation = "created"  # 默认操作为创建
+        operation = file_result.get("operation", "updated")
+        user_edits = file_result.get("user_edits", "no edits applied")
         line_count = file_result.get("line_count", 0)
 
         # 构建输出字符串
@@ -29,44 +30,7 @@ def run(xml_string: str, basePath: str = None) -> str:
 
         # 添加user_edits部分，根据实际内容构建
         # 首先解析XML以获取内容
-        import xml.etree.ElementTree as ET
-        root = ET.fromstring(xml_string)
-        if root.tag == 'write_to_file':
-            content_element = root.find('content')
-            content = content_element.text if content_element is not None else ""
-            lines = content.split('\n') if content else []
-            # 移除最后的空行（如果有的话）
-            if lines and lines[-1] == "":
-                lines = lines[:-1]
-
-            # 构建user_edits部分
-            output_lines.append(f"<user_edits>@@ -1,{len(lines)} +0,0 @@")
-            for line in lines:
-                # 转义引号
-                escaped_line = line.replace('"', '\\"')
-                output_lines.append(f'-{escaped_line}')
-            output_lines.append("\\ No newline at end of file")
-        else:
-            # 处理args/file格式
-            args_element = root.find('args')
-            if args_element is not None:
-                file_elements = args_element.findall('file')
-                if file_elements:
-                    content_element = file_elements[0].find('content')
-                    content = content_element.text if content_element is not None else ""
-                    lines = content.split('\n') if content else []
-                    # 移除最后的空行（如果有的话）
-                    if lines and lines[-1] == "":
-                        lines = lines[:-1]
-
-                    # 构建user_edits部分
-                    output_lines.append(
-                        f"<user_edits>@@ -1,{len(lines)} +0,0 @@")
-                    for line in lines:
-                        # 转义引号
-                        escaped_line = line.replace('"', '\\"')
-                        output_lines.append(f'-{escaped_line}')
-                    output_lines.append("\\ No newline at end of file")
+        output_lines.append(f"<user_edits>{user_edits.strip()}")
 
         output_lines.append("</user_edits>")
         output_lines.append("</file_write_result>")
@@ -88,25 +52,27 @@ def run(xml_string: str, basePath: str = None) -> str:
 if __name__ == "__main__":
     xml_string = """
     <write_to_file>
+    <args>
     <path>test.json</path>
     <content>
-{
-  "apiEndpoint": "https://api.example.com",
-  "theme": {
-    "primaryColor": "#007bff",
-    "secondaryColor": "#6c757d",
-    "fontFamily": "Arial, sans-serif"
-  },
-  "features": {
-    "darkMode": true,
-    "notifications": true,
-    "analytics": false
-  },
-  "version": "1.0.0"
-}
-</content>
-<line_count>14</line_count>
-</write_to_file>
+    {
+    "apiEndpoint": "https://api.example.com",
+    "theme": {
+        "primaryColor": "#007bff",
+        "secondaryColor": "#6c757d",
+        "fontFamily": "Arial, sans-serif"
+    },
+    "features": {
+        "darkMode": true,
+        "notifications": true,
+        "analytics": false
+    },
+    "version": "1.0.0"
+    }
+    </content>
+    <line_count>14</line_count>
+    </args>
+    </write_to_file>
     """
 
     print(run(xml_string))
