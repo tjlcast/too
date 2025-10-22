@@ -32,6 +32,14 @@
             "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.write_to_file.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Insert Content Tool",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.insert_content.run",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }
