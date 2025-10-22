@@ -45,6 +45,7 @@ def main_menu():
         ('7', 'Dialogs', 'dialogs'),
         ('8', 'Syntax Highlighting', 'syntax_highlighting'),
         ('9', 'AI Chat Simulation', 'ai_chat'),
+        ('10', 'User Selection', 'selection'),
         ('0', 'Exit', 'exit')
     ]
 
@@ -97,10 +98,10 @@ def main_menu():
                 input("Press Enter to continue...")
 
         except KeyboardInterrupt:
-            print("\n\nGoodbye!")
+            print("\\n\\nGoodbye!")
             sys.exit(0)
         except EOFError:
-            print("\n\nGoodbye!")
+            print("\\n\\nGoodbye!")
             sys.exit(0)
 
 
