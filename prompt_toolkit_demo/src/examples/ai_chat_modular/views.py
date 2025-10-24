@@ -7,7 +7,7 @@ getting user input, and showing status updates.
 """
 
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 
 from prompt_toolkit import print_formatted_text, prompt

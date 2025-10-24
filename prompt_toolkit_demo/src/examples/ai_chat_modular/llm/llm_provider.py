@@ -12,7 +12,6 @@ import os
 import json
 from typing import List, Dict, Generator
 import urllib.request
-from datetime import datetime
 
 
 class LLMProvider:
@@ -28,7 +27,8 @@ class LLMProvider:
     def _load_env_config(self) -> Dict[str, str]:
         """Load configuration from .env file."""
         # Fixed path resolution to correctly find .env file
-        env_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
+        env_path = os.path.join(os.path.dirname(
+            __file__), '..', '..', '..', '..', '.env')
         config = {}
 
         if os.path.exists(env_path):
@@ -44,16 +44,18 @@ class LLMProvider:
     def get_response_stream(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
         """
         Get a streaming response from the AI model.
-        
+
         Args:
             messages: List of message dictionaries with role and content
-            
+
         Yields:
             Chunks of the AI response
         """
-        api_base_url = self.config.get('API_BASE_URL', 'https://api.openai.com/v1')
+        api_base_url = self.config.get(
+            'API_BASE_URL', 'https://api.openai.com/v1')
         api_key = self.config.get('API_KEY', '')
         model = self.config.get('API_MODEL', 'gpt-3.5-turbo')
+        print(f"api_key: {api_key}")
 
         # If no API key is configured, use simulated response
         if not api_key or api_key == 'your-api-key-here':
@@ -99,10 +101,10 @@ class LLMProvider:
         """
         Simulate a streaming AI response based on user input.
         In a real application, this would be replaced by actual API streaming.
-        
+
         Args:
             user_input: The user's input message
-            
+
         Yields:
             Chunks of a simulated AI response
         """
@@ -153,6 +155,9 @@ class LLMProvider:
 
         response = random.choice(responses)
 
+        # mark this is simulated response
+        response = f"[Simulated Response] {response}"
+
         # Simulate streaming by yielding parts of the response
         words = response.split(' ')
         for i, word in enumerate(words):
@@ -164,10 +169,10 @@ class LLMProvider:
     def get_response(self, messages: List[Dict[str, str]]) -> str:
         """
         Get a complete response from the AI model.
-        
+
         Args:
             messages: List of message dictionaries with role and content
-            
+
         Returns:
             Complete AI response as a string
         """

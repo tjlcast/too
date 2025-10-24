@@ -147,6 +147,9 @@ def simulate_ai_response_streaming(user_input: str):
 
     response = random.choice(responses)
 
+    # mark this is simulated response
+    response = f"[Simulated Response] {response}"
+
     # Simulate streaming by yielding parts of the response
     words = response.split(' ')
     for i, word in enumerate(words):
