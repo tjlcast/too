@@ -15,14 +15,16 @@ This application demonstrates various capabilities including:
 - AI chat simulation
 """
 
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.styles import Style
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit import prompt
 import os
 import sys
 
-from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.styles import Style
-from prompt_toolkit import print_formatted_text
+# 添加src目录到Python路径，以便能正确导入examples模块
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
 
 
 # Demo modules will be added later
@@ -46,6 +48,7 @@ def main_menu():
         ('8', 'Syntax Highlighting', 'syntax_highlighting'),
         ('9', 'AI Chat Simulation', 'ai_chat'),
         ('10', 'User Selection', 'selection'),
+        ('11', 'Modular AI Chat', 'ai_chat_modular.main'),
         ('0', 'Exit', 'exit')
     ]
 
