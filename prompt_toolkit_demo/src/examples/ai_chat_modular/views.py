@@ -7,7 +7,7 @@ getting user input, and showing status updates.
 """
 
 import os
-from typing import List, Dict
+from typing import Any, List, Dict
 from datetime import datetime
 
 from prompt_toolkit import print_formatted_text, prompt
@@ -75,7 +75,9 @@ class ViewInterface:
             '$help': None,
             '$clear': None,
             '$exit': None,
-            '$reset': None
+            '$reset': None,
+            '$pwd': None,
+            '$cd': path_completer,
         })
         
         return completer
@@ -114,6 +116,10 @@ class ViewInterface:
         # Show current time
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.display_system_message(f"Current time: {current_time}", 'context')
+        
+        # Show current working directory
+        current_dir = os.getcwd()
+        self.display_system_message(f"Current directory: {current_dir}", 'context')
 
     def display_ai_header(self):
         """Display the AI response header."""
@@ -169,6 +175,66 @@ class ViewInterface:
         )
         return user_input.strip()
 
+    def process_command(self, user_input: str) -> Dict[str, Any]:
+        """
+        Process special $ commands that affect the view layer.
+        
+        Args:
+            user_input: The user's command input
+            
+        Returns:
+            Dictionary with processing results
+        """
+        parts = user_input.split(' ', 1)
+        command = parts[0].lower()
+        args = parts[1] if len(parts) > 1 else ""
+        
+        result = {
+            'command': command,
+            'args': args,
+            'handled': False
+        }
+        
+        if command == '$pwd':
+            # Show current directory
+            current_dir = os.getcwd()
+            self.display_system_message(f"Current directory: {current_dir}", 'info')
+            result['handled'] = True
+        elif command == '$cd' and args:
+            # Change directory
+            try:
+                # Expand user path (e.g., ~/directory)
+                expanded_path = os.path.expanduser(args)
+                
+                # If it's a relative path, make it relative to the current directory
+                if not os.path.isabs(expanded_path):
+                    expanded_path = os.path.join(os.getcwd(), expanded_path)
+                
+                # Change directory
+                os.chdir(expanded_path)
+                
+                # Show success message
+                self.display_system_message(f"Changed directory to: {expanded_path}", 'info')
+                result['handled'] = True
+                
+            except Exception as e:
+                error_msg = f"Error changing directory to {args}: {str(e)}"
+                self.display_system_message(error_msg, 'error')
+                result['handled'] = True
+        elif command == '$cd':
+            # Change to home directory if no args
+            try:
+                home_dir = os.path.expanduser("~")
+                os.chdir(home_dir)
+                self.display_system_message(f"Changed to home directory: {home_dir}", 'info')
+                result['handled'] = True
+            except Exception as e:
+                error_msg = f"Error changing directory to home: {str(e)}"
+                self.display_system_message(error_msg, 'error')
+                result['handled'] = True
+                
+        return result
+
     def show_instructions(self):
         """Display instructions for using the chat interface."""
         print("=" * 50)
@@ -184,6 +250,8 @@ class ViewInterface:
         print("  $clear      - Clear the current input")
         print("  $exit       - Exit the chat")
         print("  $reset      - Reset conversation history")
+        print("  $pwd        - Show current directory")
+        print("  $cd [path]  - Change directory")
         print()
         print("Special key bindings:")
         print("  Ctrl+C - Clear current input or exit if empty")

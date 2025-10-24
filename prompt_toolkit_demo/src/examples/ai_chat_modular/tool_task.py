@@ -119,6 +119,31 @@ class ToolTask:
             
         return result
 
+    def _process_cd_command(self, path: str):
+        """
+        Process the $cd command to change directory.
+        
+        Args:
+            path: Path to change to
+        """
+        try:
+            # Expand user path (e.g., ~/directory)
+            expanded_path = os.path.expanduser(path)
+            
+            # If it's a relative path, make it relative to the current directory
+            if not os.path.isabs(expanded_path):
+                expanded_path = os.path.join(os.getcwd(), expanded_path)
+            
+            # Change directory
+            os.chdir(expanded_path)
+            
+            # Show success message
+            self.view.display_system_message(f"Changed directory to: {expanded_path}", 'info')
+            
+        except Exception as e:
+            error_msg = f"Error changing directory to {path}: {str(e)}"
+            self.view.display_system_message(error_msg, 'error')
+
     def _process_add_command(self, file_path: str, conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
         """
         Process the $add command to include file content in the conversation.

@@ -1,5 +1,3 @@
-
-
 from typing import List, Dict
 
 from .utils.time_util import get_current_timestamp
@@ -38,16 +36,22 @@ class TooTask:
 
                     # Get user input
                     user_message = self.view_interface.get_user_input()
+                    
+                    # Check if it's a view-level command (like $pwd, $cd)
+                    if user_message.startswith('$'):
+                        command_result = self.view_interface.process_command(user_message)
+                        if command_result['handled']:
+                            continue
 
                     # Check for exit conditions
                     if user_message.lower() in ['quit', 'exit', 'bye'] or user_message == '$exit':
-                        self.view.show_goodbye_message()
+                        self.view_interface.show_goodbye_message()
                         break
 
                     # Check for reset command
                     if user_message == '$reset':
                         self.conversation_history = []
-                        self.view.display_system_message(
+                        self.view_interface.display_system_message(
                             "Conversation history cleared.", 'info')
                         continue
 
@@ -106,9 +110,9 @@ class TooTask:
                 }
 
                 f.write(
-                    f"[User] [{user_entry['timestamp']}]: {user_entry['content']}\\n")
+                    f"[User] [{user_entry['timestamp']}]: {user_entry['content']}\n")
                 f.write(
-                    f"[AI] [{ai_entry['timestamp']}]: {ai_entry['content']}\\n")
-                f.write("\\n")  # Empty line between exchanges
+                    f"[AI] [{ai_entry['timestamp']}]: {ai_entry['content']}\n")
+                f.write("\n")  # Empty line between exchanges
         except Exception as e:
             print(f"Failed to save conversation exchange: {e}")
