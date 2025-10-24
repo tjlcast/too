@@ -28,45 +28,45 @@ class ModularAIChat:
 
     def __init__(self):
         """Initialize the modular AI chat application."""
-        self.view = ViewInterface()
+        self.view_interface = ViewInterface()
         self.llm_provider = LLMProvider()
-        self.task_handler = ToolTask(self.view, self.llm_provider)
+        self.tool_task = ToolTask(self.view_interface, self.llm_provider)
         self.conversation_history: List[Dict[str, str]] = []
 
     def run(self):
         """Run the modular AI chat application."""
         # Display initial instructions
-        self.view.show_instructions()
+        self.view_interface.show_instructions()
 
         # Main conversation loop
         try:
             while True:
                 try:
                     # Display conversation context
-                    self.view.display_conversation_context(
+                    self.view_interface.display_conversation_context(
                         self.conversation_history)
 
                     # Get user input
-                    user_message = self.view.get_user_input()
+                    user_message = self.view_interface.get_user_input()
 
                     # Check for exit conditions
                     if user_message.lower() in ['quit', 'exit', 'bye']:
-                        self.view.show_goodbye_message()
+                        self.view_interface.show_goodbye_message()
                         break
 
                     if not user_message:
                         continue
 
                     # Process user input
-                    task_data = self.task_handler.process_user_input(
+                    task_data = self.tool_task.process_user_input(
                         user_message, self.conversation_history)
 
                     # Execute task
-                    execution_result = self.task_handler.execute_task(
+                    execution_result = self.tool_task.execute_task(
                         task_data)
 
                     # Process and display response
-                    processing_result = self.task_handler.process_response(
+                    processing_result = self.tool_task.process_response(
                         execution_result['response_stream'],
                         execution_result['conversation_history']
                     )
@@ -78,17 +78,17 @@ class ModularAIChat:
                     self._save_conversation_exchange(
                         task_data, processing_result)
 
-                    self.view.display_newline()
+                    self.view_interface.display_newline()
 
                 except KeyboardInterrupt:
-                    self.view.show_interrupt_message()
+                    self.view_interface.show_interrupt_message()
                     break
                 except EOFError:
-                    self.view.show_interrupt_message()
+                    self.view_interface.show_interrupt_message()
                     break
 
         finally:
-            self.view.wait_for_enter()
+            self.view_interface.wait_for_enter()
 
     def _save_conversation_exchange(self, task_data: Dict, processing_result: Dict):
         """
@@ -105,7 +105,7 @@ class ModularAIChat:
                 ai_entry = {
                     "role": "assistant",
                     "content": processing_result['response'],
-                    "timestamp": self.task_handler._get_current_timestamp()
+                    "timestamp": self.tool_task._get_current_timestamp()
                 }
 
                 f.write(
