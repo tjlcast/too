@@ -36,5 +36,8 @@ The Current Workspace Directory is the active VS Code project directory, and is 
     
     return details
 
+"""
+Run command: python -m src.examples.ai_agent.prompt.system_info
+"""
 if __name__ == "__main__":
     print(get_system_info_section(os.getcwd()))
