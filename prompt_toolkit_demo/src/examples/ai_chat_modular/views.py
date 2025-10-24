@@ -15,6 +15,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.completion import NestedCompleter, PathCompleter
 
 
 class ViewInterface:
@@ -36,6 +37,7 @@ class ViewInterface:
 
         self.bindings = self._setup_key_bindings()
         self.history_file = '.ai_chat_history'
+        self.completer = self._create_completer()
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Set up custom key bindings for the chat interface."""
@@ -57,6 +59,27 @@ class ViewInterface:
 
         return bindings
 
+    def _create_completer(self):
+        """Create a completer with support for $ commands and file paths."""
+        # Create a path completer for the current directory
+        path_completer = PathCompleter(
+            expanduser=True,
+            file_filter=None,
+            min_input_len=0,
+            get_paths=None
+        )
+        
+        # Create a nested completer with $ commands
+        completer = NestedCompleter.from_nested_dict({
+            '$add': path_completer,
+            '$help': None,
+            '$clear': None,
+            '$exit': None,
+            '$reset': None
+        })
+        
+        return completer
+
     def display_system_message(self, message: str, msg_type: str = 'info'):
         """
         Display a system message to the user.
@@ -66,7 +89,7 @@ class ViewInterface:
             msg_type: Type of message (info, error, context)
         """
         if msg_type == 'info':
-            print_formatted_text(f'<ansiwhite>{message}</ansiwhite>')
+            print_formatted_text(HTML(f'<ansiwhite>{message}</ansiwhite>'))
         elif msg_type == 'error':
             print_formatted_text(HTML(f'<ansired>{message}</ansired>'))
         elif msg_type == 'context':
@@ -126,11 +149,11 @@ class ViewInterface:
         Args:
             message: The AI message to display
         """
-        print(HTML(f'<ansiblue>AI:</ansiblue> {message}'))
+        print_formatted_text(HTML(f'<ansiblue>AI:</ansiblue> {message}'))
 
     def get_user_input(self) -> str:
         """
-        Get input from the user.
+        Get input from the user with command completion support.
 
         Returns:
             User input as a string
@@ -140,6 +163,7 @@ class ViewInterface:
             multiline=True,
             key_bindings=self.bindings,
             style=self.style,
+            completer=self.completer,
             history=FileHistory(self.history_file) if os.path.exists(
                 self.history_file) else None
         )
@@ -154,6 +178,13 @@ class ViewInterface:
         print(
             "Press [Alt+Enter] or [Esc] followed by [Enter] for multi-line messages.")
         print()
+        print("Special commands:")
+        print("  $add [path] - Add content from a file")
+        print("  $help       - Show this help message")
+        print("  $clear      - Clear the current input")
+        print("  $exit       - Exit the chat")
+        print("  $reset      - Reset conversation history")
+        print()
         print("Special key bindings:")
         print("  Ctrl+C - Clear current input or exit if empty")
         print("  Ctrl+D - Exit chat")
@@ -162,12 +193,12 @@ class ViewInterface:
 
     def show_goodbye_message(self):
         """Display a goodbye message."""
-        print(HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
+        print_formatted_text(HTML('<ansiblue>AI:</ansiblue> Goodbye!'))
 
     def show_interrupt_message(self):
         """Display an interrupt message."""
-        print("\\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
+        print("\n" + HTML('<ansired>Chat interrupted. Goodbye!</ansired>'))
 
     def wait_for_enter(self):
         """Wait for the user to press Enter."""
-        input("\\nPress Enter to continue...")
+        input("\nPress Enter to continue...")

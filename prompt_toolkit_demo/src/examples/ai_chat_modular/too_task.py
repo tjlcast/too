@@ -40,9 +40,16 @@ class TooTask:
                     user_message = self.view_interface.get_user_input()
 
                     # Check for exit conditions
-                    if user_message.lower() in ['quit', 'exit', 'bye']:
-                        self.view_interface.show_goodbye_message()
+                    if user_message.lower() in ['quit', 'exit', 'bye'] or user_message == '$exit':
+                        self.view.show_goodbye_message()
                         break
+
+                    # Check for reset command
+                    if user_message == '$reset':
+                        self.conversation_history = []
+                        self.view.display_system_message(
+                            "Conversation history cleared.", 'info')
+                        continue
 
                     if not user_message:
                         continue

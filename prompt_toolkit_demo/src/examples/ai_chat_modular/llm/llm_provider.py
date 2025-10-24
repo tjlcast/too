@@ -55,7 +55,7 @@ class LLMProvider:
             'API_BASE_URL', 'https://api.openai.com/v1')
         api_key = self.config.get('API_KEY', '')
         model = self.config.get('API_MODEL', 'gpt-3.5-turbo')
-        print(f"api_key: {api_key}")
+        # print(f"api_key: {api_key}")
 
         # If no API key is configured, use simulated response
         if not api_key or api_key == 'your-api-key-here':
