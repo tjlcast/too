@@ -13,7 +13,7 @@
             "name": "Run Read File Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.read_file.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.read_file.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
