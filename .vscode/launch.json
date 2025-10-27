@@ -29,7 +29,7 @@
             "name": "Run Write To File Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.write_to_file.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.write_to_file.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },

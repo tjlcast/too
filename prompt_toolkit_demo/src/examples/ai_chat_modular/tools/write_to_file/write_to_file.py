@@ -1,16 +1,25 @@
 import os
-import xml.etree.ElementTree as ET
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
 import difflib
+from dataclasses import dataclass
 
 
-"""
-@function
-"""
+@dataclass
+class FileInfo:
+    """Information about a file to be written."""
+    path: str
+    content: str = ""
+    line_count: int = 0
 
 
-def write_to_file(xml_string: str, basePath: str = None) -> Dict[str, Any]:
+@dataclass
+class WriteToFileArgs:
+    """Arguments for the write to file tool."""
+    file: List[FileInfo]
+
+
+def write_to_file(args: WriteToFileArgs, basePath: str = None) -> Dict[str, Any]:
     """
     Write content to one or more files.
 
@@ -23,23 +32,22 @@ def write_to_file(xml_string: str, basePath: str = None) -> Dict[str, Any]:
     """
     if basePath is None:
         basePath = os.getcwd()
-    args = parse_write_file_xml(xml_string)
     return _write_to_file(args, basePath)
 
 
-def _write_to_file(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
+def _write_to_file(args: WriteToFileArgs, basePath: str) -> Dict[str, Any]:
     """
     Write content to one or more files.
 
     Args:
-        args: Dictionary containing file paths and content to write
+        args: WriteToFileArgs containing file paths and content to write
 
     Returns:
         Dictionary with results of file writing operations
     """
     try:
         # Extract files from args
-        files = args.get('args', {}).get('file', [])
+        files = args.file
         if not files:
             return {"error": "No files specified"}
 
@@ -60,7 +68,7 @@ def _write_to_file(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
 
             # Resolve path relative to workspace
             full_path = os.path.join(basePath, path)
-            
+
             # Read old content if file exists
             old_content = ""
             if os.path.exists(full_path):
@@ -111,115 +119,19 @@ def _write_to_file(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
         return {"error": f"Failed to process write_to_file request: {str(e)}"}
 
 
-def parse_write_file_xml(xml_string: str) -> Dict[str, Any]:
-    """
-    Parse XML string into the args structure for write_to_file tool.
-
-    Args:
-        xml_string: XML string representing a write_to_file tool call
-
-    Returns:
-        Dictionary with the parsed args structure
-    """
-    try:
-        # Check if this is the simple format (no args/file wrappers)
-        root = ET.fromstring(xml_string)
-
-        # If root tag is 'write_to_file', parse in the simple format
-        if root.tag == 'write_to_file':
-            args_element = root.find("args")
-            path_element = args_element.find('path')
-            content_element = args_element.find('content')
-            line_count_element = args_element.find('line_count')
-
-            file_info = {"path": "", "content": "", "line_count": 0}
-
-            if path_element is not None and path_element.text:
-                file_info["path"] = path_element.text.strip()
-
-            if content_element is not None:
-                # Handle CDATA or plain text content
-                file_info["content"] = content_element.text or ""
-
-            if line_count_element is not None and line_count_element.text:
-                try:
-                    file_info["line_count"] = int(
-                        line_count_element.text.strip())
-                except ValueError:
-                    file_info["line_count"] = 0
-
-            return {
-                "args": {
-                    "file": [file_info]
-                }
-            }
-        else:
-            # Handle the args/file format
-            write_to_file_element = root if root.tag == 'write_to_file' else root.find(
-                'write_to_file')
-
-            if write_to_file_element is None:
-                return {"error": "Invalid XML format"}
-
-            # Parse args
-            args_element = write_to_file_element.find('args')
-            if args_element is None:
-                return {"error": "Missing <args> element"}
-
-            # Parse files
-            file_elements = args_element.findall('file')
-            files = []
-
-            for file_element in file_elements:
-                path_element = file_element.find('path')
-                content_element = file_element.find('content')
-                line_count_element = file_element.find('line_count')
-
-                file_info = {"path": "", "content": "", "line_count": 0}
-
-                if path_element is not None and path_element.text:
-                    file_info["path"] = path_element.text.strip()
-
-                if content_element is not None:
-                    # Handle CDATA or plain text content
-                    file_info["content"] = content_element.text or ""
-
-                if line_count_element is not None and line_count_element.text:
-                    try:
-                        file_info["line_count"] = int(
-                            line_count_element.text.strip())
-                    except ValueError:
-                        file_info["line_count"] = 0
-
-                files.append(file_info)
-
-            return {
-                "args": {
-                    "file": files
-                }
-            }
-
-    except ET.ParseError as e:
-        return {"error": f"XML parsing error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Error parsing XML: {str(e)}"}
-
-
 # For testing purposes
 if __name__ == "__main__":
     from pathlib import Path
     current_working_directory = Path.cwd()
 
     # Test the function
-    test_args = {
-        "args": {
-            "file": [{
-                "path": "test.txt",
-                "content": "Hello, world!",
-                "line_count": 1
-            }]
-        }
-    }
+    test_args = WriteToFileArgs(
+        file=[FileInfo(
+            path="test.txt",
+            content="Hello, world!",
+            line_count=1
+        )]
+    )
 
     # Convert to XML format for testing
     print("Testing write_to_file function...")
