@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List, Any
 import json
 
-from .search_files import search_files
+from .search_files import SearchArgs, search_files
 
 
 def run(xml_string: str, basePath: str = None) -> str:
@@ -57,32 +57,37 @@ def run(xml_string: str, basePath: str = None) -> str:
     </args>
     </search_files>
     """
-    result = search_files(xml_string, basePath)
-    
+    args = parse_xml_args(xml_string)
+    return execute(args, basePath)
+
+
+def execute(args: SearchArgs, basePath: str = None) -> str:
+    result = search_files(args, basePath)
+
     # 如果有错误，直接返回错误信息
     if "error" in result:
         return json.dumps(result, indent=2, ensure_ascii=False)
-    
+
     # 格式化输出结果
     results = result.get("results", [])
     if not results:
         return "Found 0 results."
-    
+
     # 按文件路径分组结果
     file_groups = {}
     total_matches = 0
-    
+
     for res in results:
         path = res.get("path", "")
         matches = res.get("matches", [])
         total_matches += len(matches)
-        
+
         if path not in file_groups:
             file_groups[path] = []
         file_groups[path].extend(matches)
-    
+
     output_lines = [f"Found {total_matches} results.\n"]
-    
+
     # 为每个文件输出所有匹配项
     for path, matches in file_groups.items():
         output_lines.append(f"# {path}")
@@ -92,8 +97,60 @@ def run(xml_string: str, basePath: str = None) -> str:
                 output_lines.append(f" {line}")
             output_lines.append("----")
         output_lines.append('\n')
-        
+
     return '\n'.join(output_lines)
+
+
+def parse_xml_args(xml_string: str) -> SearchArgs:
+    """
+    Parse XML string into the args structure for search_files tool.
+
+    Args:
+        xml_string: XML string representing a search_files tool call
+
+    Returns:
+        SearchArgs with the parsed parameters
+    """
+    try:
+        # Wrap the XML in a root element if it doesn't have one
+        if not xml_string.strip().startswith('<search_files>'):
+            xml_string = f"<root>{xml_string}</root>"
+            root = ET.fromstring(xml_string)
+            search_files_element = root.find('search_files')
+        else:
+            search_files_element = ET.fromstring(xml_string)
+
+        if search_files_element is None:
+            raise ValueError("Invalid XML format")
+
+        # Parse args
+        args_element = search_files_element.find('args')
+        if args_element is None:
+            raise ValueError("Missing <args> element")
+
+        # Parse individual elements
+        path_element = args_element.find('path')
+        path = path_element.text.strip(
+        ) if path_element is not None and path_element.text else None
+
+        regex_element = args_element.find('regex')
+        regex = regex_element.text.strip(
+        ) if regex_element is not None and regex_element.text else None
+
+        file_pattern_element = args_element.find('file_pattern')
+        file_pattern = file_pattern_element.text.strip(
+        ) if file_pattern_element is not None and file_pattern_element.text else "*"
+
+        return SearchArgs(
+            path=path,
+            regex=regex,
+            file_pattern=file_pattern
+        )
+
+    except ET.ParseError as e:
+        raise ValueError(f"XML parsing error: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error parsing XML: {str(e)}")
 
 
 # For testing purposes
