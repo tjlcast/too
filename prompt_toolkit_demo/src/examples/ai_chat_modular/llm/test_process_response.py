@@ -67,6 +67,8 @@ def test_process_response():
     result = llm_proxy.process_response(response_stream, conversation_history)
     print(f"\nFull response: {result['response']}")
     print(f"Conversation history length: {len(conversation_history)}")
+    assert 'tools_situations' in result
+    assert len(result['tools_situations']) == 0
     
     # Test case 2: Response with execute_command tool call
     print("\n" + "=" * 50)
@@ -87,6 +89,8 @@ That's the result of the ls command."""
     result = llm_proxy.process_response(response_stream, conversation_history)
     print(f"\nFull response: {result['response']}")
     print(f"Conversation history length: {len(conversation_history)}")
+    assert 'tools_situations' in result
+    assert len(result['tools_situations']) == 1
     
     # Test case 3: Response with write_to_file tool call
     print("\n" + "=" * 50)
@@ -110,6 +114,8 @@ The file has been created."""
     result = llm_proxy.process_response(response_stream, conversation_history)
     print(f"\nFull response: {result['response']}")
     print(f"Conversation history length: {len(conversation_history)}")
+    assert 'tools_situations' in result
+    assert len(result['tools_situations']) == 1
     
     # Test case 4: Response with multiple tool calls
     print("\n" + "=" * 50)
@@ -117,27 +123,27 @@ The file has been created."""
     print("=" * 50)
     
     multiple_text = """I'll run a few commands for you.
-<execute_command>
-<args>
-  <command>pwd</command>
-</args>
-</execute_command>
-Now I'll list the files:
-<list_files>
-<args>
-  <path>.</path>
-</args>
-</list_files>
-Finally, I'll create a file:
-<write_to_file>
-<args>
-  <file>
-    <path>demo.txt</path>
-    <content>This is a demo file.</content>
-  </file>
-</args>
-</write_to_file>
-All done!"""
+                  <execute_command>
+                  <args>
+                    <command>pwd</command>
+                  </args>
+                  </execute_command>
+                  Now I'll list the files:
+                  <list_files>
+                  <args>
+                    <path>.</path>
+                  </args>
+                  </list_files>
+                  Finally, I'll create a file:
+                  <write_to_file>
+                  <args>
+                    <file>
+                      <path>demo.txt</path>
+                      <content>This is a demo file.</content>
+                    </file>
+                  </args>
+                  </write_to_file>
+                  All done!"""
     
     response_stream = create_mock_response_stream(multiple_text)
     conversation_history = []
@@ -145,6 +151,8 @@ All done!"""
     result = llm_proxy.process_response(response_stream, conversation_history)
     print(f"\nFull response: {result['response']}")
     print(f"Conversation history length: {len(conversation_history)}")
+    assert 'tools_situations' in result
+    assert len(result['tools_situations']) == 3
 
 
 """

@@ -101,6 +101,7 @@ class LLMProxy:
         Returns:
             Dictionary with processing results
         """
+        tools_situations = []
         full_response = ""
         self.view.display_ai_header()
 
@@ -109,30 +110,36 @@ class LLMProxy:
         in_tool_call = False  # 是否正在处理工具调用
         current_tool_tag = ""  # 当前工具标签名
         tool_depth = 0  # XML标签深度计数器
-        
+
         # 收集流式响应的token并实时处理工具调用
         for chunk in response_stream:
             # 如果不在工具调用中，正常显示chunk
             if not in_tool_call:
                 self.view.display_ai_message_chunk(chunk)
-            
+
             full_response += chunk
-            
+
             # 实时处理工具调用检测
             processed_chunk, tool_detected = self._process_chunk_for_tools(
                 chunk, current_tool_buffer, in_tool_call, current_tool_tag, tool_depth
             )
-            
+
             # 更新工具调用状态
             current_tool_buffer = processed_chunk.get('buffer', '')
             in_tool_call = processed_chunk.get('in_tool_call', False)
             current_tool_tag = processed_chunk.get('current_tool_tag', '')
             tool_depth = processed_chunk.get('tool_depth', 0)
-            
+
             # 如果检测到完整的工具调用并执行完成
             if tool_detected and processed_chunk.get('execution_result'):
                 execution_result = processed_chunk['execution_result']
-                self.view.display_ai_message_chunk(f"【工具执行结果】{execution_result}")
+                execution_params = processed_chunk.get('execution_params', '')
+                tools_situations.append({
+                    "execution_params": execution_params,
+                    "execution_result": execution_result,
+                })
+                self.view.display_ai_message_chunk(
+                    f"【工具执行结果】{execution_result}")
 
         self.view.display_newline()
 
@@ -140,7 +147,8 @@ class LLMProxy:
         if in_tool_call and current_tool_buffer:
             # 不完整的工具调用，按普通文本处理
             self.view.display_ai_message_chunk(current_tool_buffer)
-            full_response = full_response.replace(current_tool_buffer, '') + current_tool_buffer
+            full_response = full_response.replace(
+                current_tool_buffer, '') + current_tool_buffer
 
         # Add AI response to conversation history
         conversation_history.append({
@@ -151,13 +159,14 @@ class LLMProxy:
 
         result = {
             'response': full_response,
-            'conversation_history': conversation_history
+            'conversation_history': conversation_history,
+            'tools_situations': tools_situations
         }
 
         return result
 
-    def _process_chunk_for_tools(self, chunk: str, current_buffer: str, in_tool_call: bool, 
-                               current_tool_tag: str, tool_depth: int) -> tuple:
+    def _process_chunk_for_tools(self, chunk: str, current_buffer: str, in_tool_call: bool,
+                                 current_tool_tag: str, tool_depth: int) -> tuple:
         """
         实时处理chunk，检测和解析工具调用。
 
@@ -174,13 +183,14 @@ class LLMProxy:
         buffer = current_buffer + chunk
         tool_detected = False
         execution_result = None
-        
+        execution_params = None
+
         # 定义支持的工具标签
         tool_tags = [
             'execute_command', 'insert_content', 'list_files', 'read_file',
             'search_and_replace', 'search_files', 'write_to_file'
         ]
-        
+
         if not in_tool_call:
             # 检测是否开始工具调用
             for tool_tag in tool_tags:
@@ -196,33 +206,35 @@ class LLMProxy:
                         self.view.display_ai_message_chunk(normal_text)
                         buffer = buffer[start_pos:]
                     break
-        
+
         if in_tool_call:
             # 更新标签深度
             open_tag = f"<{current_tool_tag}>"
             close_tag = f"</{current_tool_tag}>"
-            
+
             # 计算深度（只计算新 chunk 中的标签数量，而不是整个 buffer）
             tool_depth += chunk.count(open_tag)
             tool_depth -= chunk.count(close_tag)
-            
+
             # 检查是否找到完整的工具调用（深度为0表示标签闭合）
             if tool_depth == 0 and close_tag in buffer:
                 # 提取完整的工具调用
                 end_pos = buffer.find(close_tag) + len(close_tag)
                 full_tool_call = buffer[:end_pos]
-                
+
                 try:
                     # 尝试解析和执行工具调用
-                    execution_result = self._parse_and_execute_tool(full_tool_call)
+                    execution_result = self._parse_and_execute_tool(
+                        full_tool_call)
+                    execution_params = full_tool_call
                     tool_detected = True
-                    
+
                     # 从缓冲区移除已处理的工具调用
                     buffer = buffer[end_pos:]
                     in_tool_call = False
                     current_tool_tag = ""
                     tool_depth = 0  # 重置深度计数器
-                    
+
                 except Exception as e:
                     # 解析失败，将内容作为普通文本处理
                     self.view.display_ai_message_chunk(full_tool_call)
@@ -230,13 +242,14 @@ class LLMProxy:
                     in_tool_call = False
                     current_tool_tag = ""
                     tool_depth = 0  # 重置深度计数器
-        
+
         return {
             'buffer': buffer,
             'in_tool_call': in_tool_call,
             'current_tool_tag': current_tool_tag,
             'tool_depth': tool_depth,
-            'execution_result': execution_result
+            'execution_result': execution_result,
+            'execution_params': execution_params
         }, tool_detected
 
     def _parse_and_execute_tool(self, tool_xml: str) -> str:
@@ -252,7 +265,7 @@ class LLMProxy:
         try:
             root = ET.fromstring(tool_xml)
             tool_name = root.tag
-            
+
             # 根据工具类型调用相应的处理函数
             if tool_name == 'execute_command':
                 return self._execute_command_tool(root)
@@ -270,7 +283,7 @@ class LLMProxy:
                 return self._execute_write_file_tool(root)
             else:
                 return f"未知工具: {tool_name}"
-                
+
         except ET.ParseError as e:
             return f"XML解析错误: {str(e)}"
         except Exception as e:
@@ -290,7 +303,7 @@ class LLMProxy:
         path_elem = root.find('.//path')
         line_elem = root.find('.//line')
         content_elem = root.find('.//content')
-        
+
         if all(elem is not None for elem in [path_elem, line_elem, content_elem]):
             path = path_elem.text or ""
             line = line_elem.text or ""
@@ -302,10 +315,10 @@ class LLMProxy:
         """模拟列出文件工具"""
         path_elem = root.find('.//path')
         recursive_elem = root.find('.//recursive')
-        
+
         path = path_elem.text if path_elem is not None else "."
         recursive = recursive_elem.text if recursive_elem is not None else "false"
-        
+
         return f"列出目录 {path} 的文件 (递归: {recursive}) [模拟执行完成]"
 
     def _execute_read_file_tool(self, root: ET.Element) -> str:
@@ -321,7 +334,7 @@ class LLMProxy:
         path_elem = root.find('.//path')
         search_elem = root.find('.//search')
         replace_elem = root.find('.//replace')
-        
+
         if all(elem is not None for elem in [path_elem, search_elem, replace_elem]):
             path = path_elem.text or ""
             search = search_elem.text or ""
@@ -334,11 +347,11 @@ class LLMProxy:
         path_elem = root.find('.//path')
         regex_elem = root.find('.//regex')
         file_pattern_elem = root.find('.//file_pattern')
-        
+
         path = path_elem.text if path_elem is not None else "."
         regex = regex_elem.text if regex_elem is not None else "."
         file_pattern = file_pattern_elem.text if file_pattern_elem is not None else "*"
-        
+
         return f"在目录 {path} 中搜索文件模式 {file_pattern}，正则表达式 {regex} [模拟执行完成]"
 
     def _execute_write_file_tool(self, root: ET.Element) -> str:
@@ -346,7 +359,7 @@ class LLMProxy:
         path_elem = root.find('.//path')
         content_elem = root.find('.//content')
         line_count_elem = root.find('.//line_count')
-        
+
         if path_elem is not None and content_elem is not None:
             path = path_elem.text or ""
             content = content_elem.text or ""
