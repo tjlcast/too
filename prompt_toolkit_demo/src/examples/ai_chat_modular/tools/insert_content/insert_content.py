@@ -1,16 +1,27 @@
 import os
-import xml.etree.ElementTree as ET
+
 from typing import Dict, List, Any
 import json
 import difflib
+from dataclasses import dataclass
+from typing import Optional
 
 
-"""
-@function
-"""
+@dataclass
+class Insertion:
+    """Represents a single insertion operation."""
+    path: str
+    line: str
+    content: str
 
 
-def insert_content(xml_string: str, basePath: str = None) -> Dict[str, Any]:
+@dataclass
+class InsertContentArgs:
+    """Represents the arguments for insert_content function."""
+    insertion: List[Insertion]
+
+
+def insert_content(args: InsertContentArgs, basePath: str = None) -> Dict[str, Any]:
     """
     Insert content into a file at a specific line number.
 
@@ -23,16 +34,15 @@ def insert_content(xml_string: str, basePath: str = None) -> Dict[str, Any]:
     """
     if basePath is None:
         basePath = os.getcwd()
-    args = parse_insert_content_xml(xml_string)
     return _insert_content(args, basePath)
 
 
-def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
+def _insert_content(args: InsertContentArgs, basePath: str) -> Dict[str, Any]:
     """
     Insert content into a file at a specific line number.
 
     Args:
-        args: Dictionary containing file paths and content to insert
+        args: InsertContentArgs containing file paths and content to insert
         basePath: Base path to resolve relative file paths
 
     Returns:
@@ -40,7 +50,7 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
     """
     try:
         # Extract insertions from args
-        insertions = args.get('args', {}).get('insertion', [])
+        insertions = args.insertion
         if not insertions:
             return {"error": "No insertions specified"}
 
@@ -54,9 +64,9 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
 
         results = []
         for insertion in insertions:
-            path = insertion.get('path')
-            line = insertion.get('line')
-            content = insertion.get('content')
+            path = insertion.path
+            line = insertion.line
+            content = insertion.content
 
             if not path:
                 results.append({
@@ -95,7 +105,7 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                     except Exception:
                         # If we can't read the old file, treat as if it's empty
                         old_content = ""
-                
+
                 # Read the file
                 with open(full_path, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
@@ -127,7 +137,7 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                 # Write the file back
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.writelines(lines)
-                
+
                 # Generate diff
                 new_content = "".join(lines)
                 old_lines = old_content.splitlines(keepends=True)
@@ -140,7 +150,7 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                     lineterm=''
                 )
                 content_diff = ''.join(diff)
-                
+
                 # Determine operation type
                 operation = "modified"
                 if not old_content:
@@ -168,84 +178,22 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
         return {"error": f"Failed to process insert_content request: {str(e)}"}
 
 
-def parse_insert_content_xml(xml_string: str) -> Dict[str, Any]:
-    """
-    Parse XML string into the args structure for insert_content tool.
-
-    Args:
-        xml_string: XML string representing a insert_content tool call
-
-    Returns:
-        Dictionary with the parsed args structure
-    """
-    try:
-        # Wrap the XML in a root element if it doesn't have one
-        if not xml_string.strip().startswith('<insert_content>'):
-            xml_string = f"<root>{xml_string}</root>"
-            root = ET.fromstring(xml_string)
-            insert_content_element = root.find('insert_content')
-        else:
-            insert_content_element = ET.fromstring(xml_string)
-
-        if insert_content_element is None:
-            return {"error": "Invalid XML format"}
-
-        # Parse args
-        args_element = insert_content_element.find('args')
-        if args_element is None:
-            return {"error": "Missing <args> element"}
-
-        # Parse insertions
-        insertion_elements = args_element.findall('insertion')
-        insertions = []
-
-        for insertion_element in insertion_elements:
-            path_element = insertion_element.find('path')
-            line_element = insertion_element.find('line')
-            content_element = insertion_element.find('content')
-
-            insertion = {}
-            if path_element is not None and path_element.text:
-                insertion["path"] = path_element.text.strip()
-
-            if line_element is not None and line_element.text:
-                insertion["line"] = line_element.text.strip()
-
-            if content_element is not None and content_element.text:
-                insertion["content"] = content_element.text.strip()
-
-            insertions.append(insertion)
-
-        return {
-            "args": {
-                "insertion": insertions
-            }
-        }
-
-    except ET.ParseError as e:
-        return {"error": f"XML parsing error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Error parsing XML: {str(e)}"}
-
-
 # For testing purposes
 if __name__ == "__main__":
     from pathlib import Path
     current_working_directory = Path.cwd()
 
     # Test the function
-    test_args = {
-        "args": {
-            "insertion": [
-                {
-                    "path": "test.txt",
-                    "line": "1",
-                    "content": "This is a test line"
-                }
-            ]
-        }
-    }
-    result = _insert_content(test_args, current_working_directory)
+    test_args = InsertContentArgs(
+        insertion=[
+            Insertion(
+                path="test.txt",
+                line="1",
+                content="This is a test line"
+            )
+        ]
+    )
+    result = _insert_content(test_args, str(current_working_directory))
     print(json.dumps(result, indent=2))
 
     # Test XML parsing
@@ -263,6 +211,9 @@ if __name__ == "__main__":
 
     parsed_args = parse_insert_content_xml(xml_example)
     print("\nParsed XML:")
-    print(json.dumps(parsed_args, indent=2))
-    result = _insert_content(parsed_args, current_working_directory)
+    print(json.dumps({"args": {"insertion": [
+        {"path": ins.path, "line": ins.line, "content": ins.content}
+        for ins in parsed_args.insertion
+    ]}}, indent=2))
+    result = _insert_content(parsed_args, str(current_working_directory))
     print(json.dumps(result, indent=2))

@@ -37,7 +37,7 @@
             "name": "Run Insert Content Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.insert_content.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.insert_content.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
