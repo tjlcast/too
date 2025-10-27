@@ -101,6 +101,7 @@ class LLMProxy:
         full_response = ""
         self.view.display_ai_header()
 
+        # 收集流式响应的token
         for chunk in response_stream:
             self.view.display_ai_message_chunk(chunk)
             full_response += chunk
