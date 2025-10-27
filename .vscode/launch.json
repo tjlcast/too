@@ -21,7 +21,7 @@
             "name": "Run List Files Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.list_files.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.list_files.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },

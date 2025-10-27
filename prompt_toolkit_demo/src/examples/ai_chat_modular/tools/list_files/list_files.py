@@ -4,9 +4,9 @@ from typing import Dict, List, Any
 import json
 
 
-"""
-@function
-"""
+# 定义黑名单
+BLACKLIST = {'.git', '__pycache__', '.DS_Store',
+             'node_modules', '.vscode', '.idea'}
 
 
 def list_files(xml_string: str, basePath: str = None) -> Dict[str, Any]:
@@ -59,11 +59,16 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
         items = []
         if recursive:
             for root, dirs, files in os.walk(full_path):
+                # 过滤目录
+                dirs[:] = [d for d in dirs if d not in BLACKLIST]
+
                 rel_root = os.path.relpath(root, full_path)
                 if rel_root == ".":
                     rel_root = ""
 
                 for dir_name in dirs:
+                    if dir_name in BLACKLIST:
+                        continue
                     dir_path = os.path.join(
                         rel_root, dir_name) if rel_root else dir_name
                     items.append({
@@ -73,6 +78,8 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                     })
 
                 for file_name in files:
+                    if file_name in BLACKLIST:
+                        continue
                     file_path = os.path.join(
                         rel_root, file_name) if rel_root else file_name
                     items.append({
@@ -82,6 +89,8 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                     })
         else:
             for item in os.listdir(full_path):
+                if item in BLACKLIST:
+                    continue
                 item_path = os.path.join(full_path, item)
                 items.append({
                     "name": item,
@@ -92,7 +101,7 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
         return {
             "path": path,
             "recursive": recursive,
-            "items": sorted(items, key=lambda x: (x['type'], x['name']))
+            "items": sorted(items, key=lambda x: (x['path'], x['type'], x['name']))
         }
 
     except Exception as e:

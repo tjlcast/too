@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any
 
-from prompt_toolkit_demo.src.examples.ai_agent.tools.list_files.list_files import list_files
+from .list_files import list_files
 
 
 def run(xml_string: str, basePath: str = None) -> str:
@@ -20,8 +20,9 @@ def run(xml_string: str, basePath: str = None) -> str:
     # 添加文件名列表
     items = result.get("items", [])
     for item in items:
-        if item.get("type") == "file":
-            output_lines.append(item.get("name", ""))
+        # if item.get("type") == "file":
+        #     output_lines.append(item.get("name", ""))
+        output_lines.append(item.get("path", ""))
     
     return "\n".join(output_lines)
 
