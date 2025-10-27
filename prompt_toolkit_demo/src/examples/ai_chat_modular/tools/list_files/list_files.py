@@ -1,7 +1,8 @@
 import os
-import xml.etree.ElementTree as ET
+
 from typing import Dict, List, Any
 import json
+from dataclasses import dataclass
 
 
 # 定义黑名单
@@ -9,7 +10,14 @@ BLACKLIST = {'.git', '__pycache__', '.DS_Store',
              'node_modules', '.vscode', '.idea'}
 
 
-def list_files(xml_string: str, basePath: str = None) -> Dict[str, Any]:
+@dataclass
+class ListFilesArgs:
+    """Arguments for the list files tool."""
+    path: str
+    recursive: bool = False
+
+
+def list_files(args: ListFilesArgs, basePath: str = None) -> Dict[str, Any]:
     """
     List files and directories within the specified directory.
 
@@ -22,16 +30,25 @@ def list_files(xml_string: str, basePath: str = None) -> Dict[str, Any]:
     """
     if basePath is None:
         basePath = os.getcwd()
-    args = parse_list_files_xml(xml_string)
-    return _list_files(args, basePath)
+
+    # Convert dict args to ListFilesArgs dataclass
+    if "error" in args:
+        return args
+
+    list_files_args = ListFilesArgs(
+        path=args.get("args", {}).get("path", ""),
+        recursive=args.get("args", {}).get("recursive", False)
+    )
+
+    return _list_files(list_files_args, basePath)
 
 
-def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
+def _list_files(args: ListFilesArgs, basePath: str) -> Dict[str, Any]:
     """
     List files and directories within the specified directory.
 
     Args:
-        args: Dictionary containing path and recursive flag
+        args: Structured arguments containing path and recursive flag
         basePath: Base path to resolve relative file paths
 
     Returns:
@@ -39,8 +56,8 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
     """
     try:
         # Extract path and recursive flag from args
-        path = args.get('args', {}).get('path')
-        recursive = args.get('args', {}).get('recursive', False)
+        path = args.path
+        recursive = args.recursive
 
         if not path:
             return {"error": "No path specified"}
@@ -106,58 +123,6 @@ def _list_files(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
 
     except Exception as e:
         return {"error": f"Failed to process list_files request: {str(e)}"}
-
-
-def parse_list_files_xml(xml_string: str) -> Dict[str, Any]:
-    """
-    Parse XML string into the args structure for list_files tool.
-
-    Args:
-        xml_string: XML string representing a list_files tool call
-
-    Returns:
-        Dictionary with the parsed args structure
-    """
-    try:
-        # Wrap the XML in a root element if it doesn't have one
-        if not xml_string.strip().startswith('<list_files>'):
-            xml_string = f"<root>{xml_string}</root>"
-            root = ET.fromstring(xml_string)
-            list_files_element = root.find('list_files')
-        else:
-            list_files_element = ET.fromstring(xml_string)
-
-        if list_files_element is None:
-            return {"error": "Invalid XML format"}
-
-        # Parse args
-        args_element = list_files_element.find('args')
-        if args_element is None:
-            return {"error": "Missing <args> element"}
-
-        # Parse path
-        path_element = args_element.find('path')
-        path = path_element.text.strip(
-        ) if path_element is not None and path_element.text else None
-
-        # Parse recursive flag
-        recursive_element = args_element.find('recursive')
-        recursive = False
-        if recursive_element is not None and recursive_element.text:
-            recursive_text = recursive_element.text.strip().lower()
-            recursive = recursive_text in ['true', '1', 'yes', 'on']
-
-        return {
-            "args": {
-                "path": path,
-                "recursive": recursive
-            }
-        }
-
-    except ET.ParseError as e:
-        return {"error": f"XML parsing error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Error parsing XML: {str(e)}"}
 
 
 # For testing purposes
