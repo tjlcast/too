@@ -2,6 +2,11 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
+from ..environment.user_message_environment_detail import get_environment_details
+from ..environment.environment_proxy import EnvironmentProxy
+
+from ..utils.tpl_util import replace_template_vars
+
 from ..utils.time_util import get_current_timestamp
 
 
@@ -40,6 +45,14 @@ class LLMProxy:
             'user_message': user_input,
             'conversation_history': conversation_history.copy()
         }
+
+        # Build user task entry
+        env_proxy = EnvironmentProxy()
+        details = get_environment_details(env_proxy)
+        user_message_tpl = """<task>{{user_task}}</task>\n{{env_details}}
+        """
+        user_input = replace_template_vars(
+            user_message_tpl, {"{{user_task}}": user_input, "{{env_details}}": details})
 
         # Add user message to conversation history
         result['conversation_history'].append({

@@ -1,5 +1,7 @@
 from typing import List, Dict
 
+from .environment.system_message import get_message_message
+
 from .utils.time_util import get_current_timestamp
 from .views import ViewInterface
 from .llm.llm_provider import LLMProvider
@@ -36,10 +38,11 @@ class TooTask:
 
                     # Get user input
                     user_message = self.view_interface.get_user_input()
-                    
+
                     # Check if it's a view-level command (like $pwd, $cd)
                     if user_message.startswith('$'):
-                        command_result = self.view_interface.process_command(user_message)
+                        command_result = self.view_interface.process_command(
+                            user_message)
                         if command_result['handled']:
                             continue
 
@@ -57,6 +60,13 @@ class TooTask:
 
                     if not user_message:
                         continue
+
+                    if len(self.conversation_history) == 0:
+                        self.conversation_history.append({
+                            "role": "system",
+                            "content": get_message_message(),
+                            "timestamp": get_current_timestamp()
+                        })
 
                     # Process user input
                     task_data = self.llm_proxy.process_user_input(
