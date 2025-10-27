@@ -6,7 +6,7 @@ from .utils.time_util import get_current_timestamp
 from .views import ViewInterface
 from .llm.llm_provider import LLMProvider
 from .llm.llm_proxy import LLMProxy
-from .tool_task import ToolTask
+from .tools.tool_task import ToolTask
 
 
 class TooTask:
