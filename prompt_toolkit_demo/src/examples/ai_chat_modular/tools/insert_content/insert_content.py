@@ -142,7 +142,7 @@ def _insert_content(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                 content_diff = ''.join(diff)
                 
                 # Determine operation type
-                operation = "updated"
+                operation = "modified"
                 if not old_content:
                     operation = "created"
 

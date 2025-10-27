@@ -131,7 +131,7 @@ def _search_and_replace(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
             try:
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(final_content)
-                operation = "updated"
+                operation = "modified"
             except Exception as e:
                 return {"error": f"Failed to write file {path}: {str(e)}"}
 

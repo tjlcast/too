@@ -67,7 +67,7 @@ def _write_to_file(args: Dict[str, Any], basePath: str) -> Dict[str, Any]:
                 try:
                     with open(full_path, 'r', encoding='utf-8') as f:
                         old_content = f.read()
-                        operation = "updated"
+                        operation = "modified"
                 except Exception:
                     # If we can't read the old file, treat as if it's empty
                     old_content = ""

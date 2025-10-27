@@ -18,7 +18,7 @@ def run(xml_string: str, basePath: str = None) -> str:
     if results:
         file_result = results[0]  # 只处理第一个文件
         path = file_result.get("path", "")
-        operation = file_result.get("operation", "updated")
+        operation = file_result.get("operation", "modified")
         user_edits = file_result.get("user_edits", "no edits applied")
         line_count = file_result.get("line_count", 0)
 

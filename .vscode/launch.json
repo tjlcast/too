@@ -5,7 +5,7 @@
             "name": "Run Search Files Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.search_files.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.search_files.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
