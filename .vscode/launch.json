@@ -56,6 +56,14 @@
             "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.execute_command.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Execute Tool Parser",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.llm.test_process_response",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }
