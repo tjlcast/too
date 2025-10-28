@@ -102,3 +102,7 @@ def _read_file(args: ReadFileArgs, basePath: str) -> Dict[str, Any]:
 
     except Exception as e:
         return {"error": f"Failed to process read_file request: {str(e)}"}
+
+
+if __name__ == "__main__":
+    print("hello world")

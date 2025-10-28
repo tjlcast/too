@@ -2,6 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug Current Python Module (Auto)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/.vscode/_launch_module_runner.py",
+            "preLaunchTask": "Compute Python Module Name",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "WORKSPACE_FOLDER": "${workspaceFolder}",
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Debug Current Python File",
             "type": "python",
             "request": "launch",

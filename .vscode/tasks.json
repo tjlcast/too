@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compute Python Module Name",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                ".vscode/get_module_name.py",
+                "${file}",
+                "${workspaceFolder}"
+            ],
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "never",
+                "panel": "dedicated"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}
