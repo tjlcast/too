@@ -45,7 +45,7 @@
             "name": "Run Search And Replace Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.search_and_replace.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.search_and_replace.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
