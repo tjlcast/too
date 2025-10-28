@@ -2,6 +2,8 @@ import sys
 import os
 from typing import Any, Generator, List, Dict
 
+from .tool_execution import try_execute_command
+
 # Add the parent directory to the path so we can import the LLMProxy class
 
 from .llm_proxy import LLMProxy
@@ -94,7 +96,7 @@ def test_process_response():
     assert 'tools_situations' in result
     assert len(result['tools_situations']) == 1
     try_execute_command(result)
-    
+
     # Test case 3: Response with execute_command tool call
     print("\n" + "=" * 50)
     print("Test 3: Response with execute_command tool call")
@@ -181,22 +183,6 @@ The file has been created."""
     assert 'tools_situations' in result
     assert len(result['tools_situations']) == 3
     try_execute_command(result)
-
-
-def try_execute_command(result: Dict[str, Any]) -> None:
-    """Try to execute the command if present in the result"""
-    tools_situations = result.get('tools_situations', [])
-    for tool in tools_situations:
-        execution_result = tool["execution_result"]
-        execution_name = execution_result.get('__name')
-        if execution_name:
-            callback = execution_result.get('__callback')
-            if callable(callback):
-                print(
-                    f"\n>>>>>>>>>>>>>>>>>>>>>>\n[Executing {execution_name} command...]\n")
-                res = callback()
-                print(f"{res}")
-                print("\n<<<<<<<<<<<<<<<<<<<<<<<\n")
 
 
 """
