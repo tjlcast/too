@@ -13,7 +13,7 @@
             "name": "Debug Current Python Module",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.execute_command.execute_command",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.insert_content.insert_content",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "env": {

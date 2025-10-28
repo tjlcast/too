@@ -217,3 +217,4 @@ if __name__ == "__main__":
     ]}}, indent=2))
     result = _insert_content(parsed_args, str(current_working_directory))
     print(json.dumps(result, indent=2))
+    assert json.dumps(result).index("No such file or directory") > 0
