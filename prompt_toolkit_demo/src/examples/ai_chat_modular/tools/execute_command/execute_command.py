@@ -4,6 +4,7 @@ from typing import Dict, Any
 import json
 from dataclasses import dataclass
 from typing import Optional
+import platform
 
 
 @dataclass
@@ -61,15 +62,26 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
 
         # Execute the command
         try:
-            # Using shell=True to support command chaining and complex commands
-            result = subprocess.run(
-                command,
-                shell=True,
-                cwd=full_cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            # 在Windows系统上使用PowerShell执行命令，以支持Unix风格的命令如pwd
+            if platform.system() == "Windows":
+                # 使用PowerShell执行命令
+                result = subprocess.run(
+                    ["powershell", "-Command", command],
+                    cwd=full_cwd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            else:
+                # 非Windows系统保持原有逻辑
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    cwd=full_cwd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
 
             return {
                 "command": command,
