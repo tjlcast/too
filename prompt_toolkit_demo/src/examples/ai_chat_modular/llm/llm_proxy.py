@@ -12,6 +12,14 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List
 
+from ..tools.execute_command.run import run as run_execute_command
+from ..tools.insert_content.run import run as run_insert_content
+from ..tools.list_files.run import run as run_list_files
+from ..tools.read_file.run import run as run_read_file
+from ..tools.search_and_replace.run import run as run_search_and_replace
+from ..tools.search_files.run import run as run_search_files
+from ..tools.write_to_file.run import run as run_write_to_file
+
 
 class LLMProxy:
     def __init__(self, view_interface, llm_provider):
@@ -268,19 +276,19 @@ class LLMProxy:
 
             # 根据工具类型调用相应的处理函数
             if tool_name == 'execute_command':
-                return self._execute_command_tool(root)
+                return self._execute_command_tool(root, tool_name, tool_xml)
             elif tool_name == 'insert_content':
-                return self._execute_insert_content_tool(root)
+                return self._execute_insert_content_tool(root, tool_name, tool_xml)
             elif tool_name == 'list_files':
-                return self._execute_list_files_tool(root)
+                return self._execute_list_files_tool(root, tool_name, tool_xml)
             elif tool_name == 'read_file':
-                return self._execute_read_file_tool(root)
+                return self._execute_read_file_tool(root, tool_name, tool_xml)
             elif tool_name == 'search_and_replace':
-                return self._execute_search_replace_tool(root)
+                return self._execute_search_replace_tool(root, tool_name, tool_xml)
             elif tool_name == 'search_files':
-                return self._execute_search_files_tool(root)
+                return self._execute_search_files_tool(root, tool_name, tool_xml)
             elif tool_name == 'write_to_file':
-                return self._execute_write_file_tool(root)
+                return self._execute_write_file_tool(root, tool_name, tool_xml)
             else:
                 return f"未知工具: {tool_name}"
 
@@ -290,15 +298,23 @@ class LLMProxy:
             return f"工具执行失败: {str(e)}"
 
     # 以下工具执行方法与之前相同，保持不变
-    def _execute_command_tool(self, root: ET.Element) -> str:
+    def _execute_command_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> Dict[str, Any]:
         """模拟执行命令工具"""
         command_elem = root.find('.//command')
         if command_elem is not None:
             command = command_elem.text or ""
-            return f"执行命令: {command} [模拟执行完成]"
+
+            def __run_execute_command():
+                return run_execute_command(tool_xml)
+
+            return {
+                "desc": f"执行命令: {command} [模拟执行完成]",
+                "__name": tool_name,
+                "__callback": __run_execute_command,
+            }
         return "命令参数缺失"
 
-    def _execute_insert_content_tool(self, root: ET.Element) -> str:
+    def _execute_insert_content_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟插入内容工具"""
         path_elem = root.find('.//path')
         line_elem = root.find('.//line')
@@ -308,10 +324,18 @@ class LLMProxy:
             path = path_elem.text or ""
             line = line_elem.text or ""
             content = content_elem.text or ""
-            return f"在文件 {path} 第 {line} 行插入内容 [模拟执行完成]"
+
+            def __run_insert_content():
+                return run_insert_content(tool_xml)
+
+            return {
+                "desc": f"在文件 {path} 第 {line} 行插入内容 [模拟执行完成]",
+                "__name": tool_name,
+                "__callback": __run_insert_content,
+            }
         return "插入内容参数缺失"
 
-    def _execute_list_files_tool(self, root: ET.Element) -> str:
+    def _execute_list_files_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟列出文件工具"""
         path_elem = root.find('.//path')
         recursive_elem = root.find('.//recursive')
@@ -319,17 +343,32 @@ class LLMProxy:
         path = path_elem.text if path_elem is not None else "."
         recursive = recursive_elem.text if recursive_elem is not None else "false"
 
-        return f"列出目录 {path} 的文件 (递归: {recursive}) [模拟执行完成]"
+        def __run_execute_command():
+            return run_list_files(tool_xml)
 
-    def _execute_read_file_tool(self, root: ET.Element) -> str:
+        return {
+            "desc": f"列出目录 {path} 的文件 (递归: {recursive}) [模拟执行完成]",
+            "__name": tool_name,
+            "__callback": lambda: __run_execute_command,
+        }
+
+    def _execute_read_file_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟读取文件工具"""
         path_elem = root.find('.//path')
         if path_elem is not None:
             path = path_elem.text or ""
-            return f"读取文件 {path} 的内容 [模拟执行完成]"
+
+            def __run_read_file():
+                return run_read_file(tool_xml)
+
+            return {
+                "desc": f"读取文件 {path} 的内容 [模拟执行完成]",
+                "__name": tool_name,
+                "__callback": __run_read_file,
+            }
         return "文件路径参数缺失"
 
-    def _execute_search_replace_tool(self, root: ET.Element) -> str:
+    def _execute_search_replace_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟搜索替换工具"""
         path_elem = root.find('.//path')
         search_elem = root.find('.//search')
@@ -339,10 +378,18 @@ class LLMProxy:
             path = path_elem.text or ""
             search = search_elem.text or ""
             replace = replace_elem.text or ""
-            return f"在文件 {path} 中搜索 '{search}' 替换为 '{replace}' [模拟执行完成]"
+
+            def __run_search_and_replace():
+                return run_search_and_replace(tool_xml)
+
+            return {
+                "desc": f"在文件 {path} 中搜索 '{search}' 替换为 '{replace}' [模拟执行完成]",
+                "__name": tool_name,
+                "__callback": __run_search_and_replace,
+            }
         return "搜索替换参数缺失"
 
-    def _execute_search_files_tool(self, root: ET.Element) -> str:
+    def _execute_search_files_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟搜索文件工具"""
         path_elem = root.find('.//path')
         regex_elem = root.find('.//regex')
@@ -352,9 +399,16 @@ class LLMProxy:
         regex = regex_elem.text if regex_elem is not None else "."
         file_pattern = file_pattern_elem.text if file_pattern_elem is not None else "*"
 
-        return f"在目录 {path} 中搜索文件模式 {file_pattern}，正则表达式 {regex} [模拟执行完成]"
+        def __run_search_files():
+            return run_search_files(tool_xml)
 
-    def _execute_write_file_tool(self, root: ET.Element) -> str:
+        return {
+            "desc": f"在目录 {path} 中搜索文件模式 {file_pattern}，正则表达式 {regex} [模拟执行完成]",
+            "__name": tool_name,
+            "__callback": __run_search_files,
+        }
+
+    def _execute_write_file_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
         """模拟写入文件工具"""
         path_elem = root.find('.//path')
         content_elem = root.find('.//content')
@@ -364,5 +418,13 @@ class LLMProxy:
             path = path_elem.text or ""
             content = content_elem.text or ""
             line_count = line_count_elem.text if line_count_elem is not None else "未知"
-            return f"写入文件 {path}，内容 {line_count} 行 [模拟执行完成]"
+
+            def __run_write_to_file():
+                return run_write_to_file(tool_xml)
+
+            return {
+                "desc": f"写入文件 {path}，内容 {line_count} 行 [模拟执行完成]",
+                "__name": tool_name,
+                "__callback": __run_write_to_file,
+            }
         return "写入文件参数缺失"
