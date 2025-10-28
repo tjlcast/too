@@ -67,7 +67,7 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
                 # 使用PowerShell执行命令
                 result = subprocess.run(
                     ["powershell", "-Command", command],
-                    cwd=full_cwd,
+                    cwd=str(full_cwd),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
@@ -77,7 +77,7 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
                 result = subprocess.run(
                     command,
                     shell=True,
-                    cwd=full_cwd,
+                    cwd=str(full_cwd),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
@@ -85,7 +85,7 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
 
             return {
                 "command": command,
-                "cwd": full_cwd,
+                "cwd": str(full_cwd),
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "returncode": result.returncode,
@@ -94,7 +94,7 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
         except Exception as e:
             return {
                 "command": command,
-                "cwd": full_cwd,
+                "cwd": str(full_cwd),
                 "stdout": "",
                 "stderr": str(e),
                 "returncode": -1,
@@ -105,6 +105,9 @@ def _execute_command(args: ExecuteCommandArgs, basePath: str) -> Dict[str, Any]:
         return {"error": f"Failed to process execute_command request: {str(e)}"}
 
 
+"""
+Run command: python -m .src.examples.ai_chat_modular.tools.execute_command.run
+"""
 # For testing purposes
 if __name__ == "__main__":
     from pathlib import Path
@@ -125,17 +128,10 @@ if __name__ == "__main__":
     </args>
     </execute_command>
     """
-
+    
+    from .run import parse_execute_command_xml
     parsed_args = parse_execute_command_xml(xml_example)
-    print("\nParsed XML:")
-    print(json.dumps(parsed_args, indent=2))
-
-    # Convert to ExecuteCommandArgs for testing
-    args_obj = ExecuteCommandArgs(
-        command=parsed_args["args"]["command"],
-        cwd=parsed_args["args"].get("cwd")
-    )
-    result = _execute_command(args_obj, current_working_directory)
+    result = _execute_command(parsed_args, current_working_directory)
     print(json.dumps(result, indent=2))
 
     xml_example = """
@@ -146,4 +142,5 @@ if __name__ == "__main__":
     </args>
     </execute_command>
     """
-    print(execute_command(xml_example))
+    parsed_args = parse_execute_command_xml(xml_example)
+    print(execute_command(parsed_args))

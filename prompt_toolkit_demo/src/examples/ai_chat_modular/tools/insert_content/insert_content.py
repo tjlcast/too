@@ -208,7 +208,7 @@ if __name__ == "__main__":
     </args>
     </insert_content>
     """
-
+    from .run import parse_insert_content_xml
     parsed_args = parse_insert_content_xml(xml_example)
     print("\nParsed XML:")
     print(json.dumps({"args": {"insertion": [

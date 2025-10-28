@@ -2,6 +2,25 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug Current Python File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Current Python Module",
+            "type": "python",
+            "request": "launch",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.execute_command.execute_command",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Run Search Files Tool",
             "type": "python",
             "request": "launch",

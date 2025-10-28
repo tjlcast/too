@@ -6,16 +6,7 @@ from .execute_command import ExecuteCommandArgs, execute_command
 
 def run(xml_string: str, basePath: str = None) -> str:
     parsed_args = parse_execute_command_xml(xml_string)
-    # Check for parsing errors
-    if "error" in parsed_args:
-        return parsed_args
-
-    # Convert parsed args dict to ExecuteCommandArgs object
-    args_obj = ExecuteCommandArgs(
-        command=parsed_args["args"]["command"],
-        cwd=parsed_args["args"].get("cwd")
-    )
-    return execute(args_obj, basePath)
+    return execute(parsed_args, basePath)
 
 
 def execute(args: ExecuteCommandArgs, basePath: str):
@@ -52,7 +43,7 @@ def execute(args: ExecuteCommandArgs, basePath: str):
     return "\n".join(output_lines)
 
 
-def parse_execute_command_xml(xml_string: str) -> Dict[str, Any]:
+def parse_execute_command_xml(xml_string: str) -> ExecuteCommandArgs:
     """
     Parse XML string into the args structure for execute_command tool.
 
@@ -88,12 +79,10 @@ def parse_execute_command_xml(xml_string: str) -> Dict[str, Any]:
         cwd_element = args_element.find('cwd')
         cwd = cwd_element.text.strip() if cwd_element is not None and cwd_element.text else None
 
-        return {
-            "args": {
-                "command": command,
-                "cwd": cwd
-            }
-        }
+        return ExecuteCommandArgs(
+            command=command,
+            cwd=cwd,
+        )
 
     except ET.ParseError as e:
         return {"error": f"XML parsing error: {str(e)}"}
@@ -132,8 +121,7 @@ if __name__ == "__main__":
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
-    
-    
+
     xml_example = """
     <execute_command>
     <args>
