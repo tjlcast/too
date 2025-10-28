@@ -53,7 +53,7 @@
             "name": "Run Execute Command Tool",
             "type": "python",
             "request": "launch",
-            "module": "prompt_toolkit_demo.src.examples.ai_agent.tools.execute_command.run",
+            "module": "prompt_toolkit_demo.src.examples.ai_chat_modular.tools.execute_command.run",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
