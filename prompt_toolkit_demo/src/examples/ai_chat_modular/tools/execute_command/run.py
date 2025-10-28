@@ -132,3 +132,13 @@ if __name__ == "__main__":
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
+    
+    
+    xml_example = """
+    <execute_command>
+    <args>
+      <command>pwd</command>
+    </args>
+    </execute_command>
+    """
+    print(run(xml_example, current_working_directory))
