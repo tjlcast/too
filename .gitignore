@@ -3,7 +3,10 @@ prompt_toolkit_demo/.venv
 **/**.pyc
 prompt_toolkit_demo/.ai_chat_history
 **/**/.env
+
 test.json
+demo.txt
+test.txt
 
 __pycache__/
 **/__pycache__/

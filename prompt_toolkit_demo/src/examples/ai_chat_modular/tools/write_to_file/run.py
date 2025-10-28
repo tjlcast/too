@@ -70,7 +70,11 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
         root = ET.fromstring(xml_string)
 
         # If root tag is 'write_to_file', parse in the simple format
-        if root.tag == 'write_to_file':
+        # 1 for  <write_to_file><args>
+        # 2 for  <write_to_file><args><file>
+        xml_contain_file = 2
+
+        if xml_contain_file == 1:
             args_element = root.find("args")
             path_element = args_element.find('path')
             content_element = args_element.find('content')
@@ -145,24 +149,26 @@ if __name__ == "__main__":
     xml_string = """
     <write_to_file>
     <args>
-    <path>test.json</path>
-    <content>
-    {
-    "apiEndpoint": "https://api.example.com",
-    "theme": {
-        "primaryColor": "#007bff",
-        "secondaryColor": "#6c757d",
-        "fontFamily": "Arial, sans-serif"
-    },
-    "features": {
-        "darkMode": true,
-        "notifications": true,
-        "analytics": false
-    },
-    "version": "1.0.0"
-    }
-    </content>
-    <line_count>14</line_count>
+    <file>
+        <path>test.json</path>
+        <content>
+        {
+        "apiEndpoint": "https://api.example.com",
+        "theme": {
+            "primaryColor": "#007bff",
+            "secondaryColor": "#6c757d",
+            "fontFamily": "Arial, sans-serif"
+        },
+        "features": {
+            "darkMode": true,
+            "notifications": true,
+            "analytics": false
+        },
+        "version": "1.0.0"
+        }
+        </content>
+        <line_count>14</line_count>
+    </file>
     </args>
     </write_to_file>
     """
