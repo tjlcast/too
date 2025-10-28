@@ -104,5 +104,54 @@ def _read_file(args: ReadFileArgs, basePath: str) -> Dict[str, Any]:
         return {"error": f"Failed to process read_file request: {str(e)}"}
 
 
+# For testing purposes
 if __name__ == "__main__":
-    print("hello world")
+    print("Testing read_file tool...")
+    from pathlib import Path
+    current_working_directory = Path.cwd()
+
+    # Test the function
+    print("Testing 1 start.")
+    test_args = ReadFileArgs(
+        file=[
+            FileInfo(path="test.txt"),
+            FileInfo(path="test.json")
+        ]
+    )
+    result = _read_file(test_args, current_working_directory)
+    print(json.dumps(result, indent=2))
+
+    print("Testing 2 start.")
+    # Test XML parsing
+    xml_example = """
+    <read_file>
+    <args>
+      <file>
+        <path>prompt_toolkit_demo/src/examples/ai_chat_modular/tools/read_file/read_file.py</path>
+      </file>
+      <file>
+        <path>src/main.py</path>
+      </file>
+    </args>
+    </read_file>
+    """
+
+    from .run import parse_xml_args
+    parsed_args = parse_xml_args(xml_example)
+    result = _read_file(parsed_args, current_working_directory)
+    print(json.dumps(result, indent=2))
+
+    print("Testing 3 start.")
+    xml_example = """
+    <read_file>
+    <args>
+      <file>
+        <path>src/example/ai_agent/tools/read_file.py</path>
+      </file>
+      <file>
+        <path>src/main.py</path>
+      </file>
+    </args>
+    </read_file>
+    """
+    print(read_file(parse_xml_args(xml_example)))
