@@ -349,7 +349,7 @@ class LLMProxy:
         return {
             "desc": f"列出目录 {path} 的文件 (递归: {recursive}) [模拟执行完成]",
             "__name": tool_name,
-            "__callback": lambda: __run_execute_command,
+            "__callback": __run_execute_command,
         }
 
     def _execute_read_file_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
