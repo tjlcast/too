@@ -150,6 +150,7 @@ if __name__ == "__main__":
     </list_files>
     """
 
+    from .run import parse_list_files_xml
     parsed_args = parse_list_files_xml(xml_example)
     print("\nParsed XML:")
     print(json.dumps(parsed_args, indent=2))
@@ -164,4 +165,4 @@ if __name__ == "__main__":
     </args>
     </list_files>
     """
-    print(list_files(xml_example))
+    print(list_files(parse_list_files_xml(xml_example)))
