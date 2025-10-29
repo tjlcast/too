@@ -2,6 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug Boot",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/prompt_toolkit_demo/src/main.py",
+            "cwd": "${workspaceFolder}/prompt_toolkit_demo",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Debug Current Python Module (Auto)",
             "type": "python",
             "request": "launch",
