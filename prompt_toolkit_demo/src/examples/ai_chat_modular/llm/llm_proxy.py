@@ -139,15 +139,28 @@ class LLMProxy:
             tool_depth = processed_chunk.get('tool_depth', 0)
 
             # 如果检测到完整的工具调用并执行完成
-            if tool_detected and processed_chunk.get('execution_result'):
+            # 这时候让 view 出现一个 tools 的调用工具列表(注意, 这里可能有多个, for循环中逐步补充)
+            
+            if tool_detected and 'execution_result' in processed_chunk:
                 execution_result = processed_chunk['execution_result']
                 execution_params = processed_chunk.get('execution_params', '')
-                tools_situations.append({
-                    "execution_params": execution_params,
-                    "execution_result": execution_result,
-                })
-                self.view.display_ai_message_chunk(
-                    f"【工具执行结果】{execution_result}")
+                # 如果执行结果是一个字典（包含回调函数），则添加到待批准列表
+                if isinstance(execution_result, dict) and "__callback" in execution_result:
+                    self.view.pending_tools.append(execution_result)
+                    tools_situations.append({
+                        "execution_params": execution_params,
+                        "execution_result": execution_result,
+                    })
+                    self.view.display_ai_message_chunk(
+                        f"\n[Tool detected: {execution_result.get('desc', 'Unknown tool')}]")
+                # 如果是字符串结果，直接显示
+                elif isinstance(execution_result, str):
+                    tools_situations.append({
+                        "execution_params": execution_params,
+                        "execution_result": execution_result,
+                    })
+                    self.view.display_ai_message_chunk(
+                        f"【工具执行结果】{execution_result}")
 
         self.view.display_newline()
 

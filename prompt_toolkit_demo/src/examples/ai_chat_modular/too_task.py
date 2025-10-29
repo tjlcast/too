@@ -1,7 +1,6 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 
 from .environment.system_message import get_message_message
-
 from .utils.time_util import get_current_timestamp
 from .views import ViewInterface
 from .llm.llm_provider import LLMProvider
@@ -36,6 +35,8 @@ class TooTask:
                     self.view_interface.display_conversation_context(
                         self.conversation_history)
 
+                    # todo
+                    # 这里修改, 除了接受用户输入信息以外, 如果再上轮中出现了 tools的调用列表, 用户也可通过触发approve来批准执行这些tools.
                     # Get user input
                     user_message = self.view_interface.get_user_input()
 
@@ -44,6 +45,9 @@ class TooTask:
                         command_result = self.view_interface.process_command(
                             user_message)
                         if command_result['handled']:
+                            # 如果是批准工具的命令，执行工具
+                            if 'approved_tools' in command_result:
+                                self._execute_approved_tools(command_result['approved_tools'])
                             continue
 
                     # Check for exit conditions
@@ -82,12 +86,11 @@ class TooTask:
                         execution_result['conversation_history']
                     )
 
-                    # Update conversation history
+                    # 更新对话历史
                     self.conversation_history = processing_result['conversation_history']
 
-                    # Save conversation (in a real app, this might be done differently)
-                    self._save_conversation_exchange(
-                        task_data, processing_result)
+                    # 保存对话交换
+                    self._save_conversation_exchange(task_data, processing_result)
 
                     self.view_interface.display_newline()
 
@@ -100,6 +103,20 @@ class TooTask:
 
         finally:
             self.view_interface.wait_for_enter()
+
+    def _execute_approved_tools(self, approved_tools: List[Dict[str, Any]]):
+        """
+        执行用户批准的工具
+        """
+        for tool in approved_tools:
+            if "__callback" in tool:
+                try:
+                    result = tool["__callback"]()
+                    self.view_interface.display_system_message(
+                        f"Tool execution result: {result}", 'info')
+                except Exception as e:
+                    self.view_interface.display_system_message(
+                        f"Error executing tool: {str(e)}", 'error')
 
     def _save_conversation_exchange(self, task_data: Dict, processing_result: Dict):
         """

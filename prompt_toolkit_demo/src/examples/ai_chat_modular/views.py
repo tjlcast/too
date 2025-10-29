@@ -16,6 +16,12 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.completion import NestedCompleter, PathCompleter
+from prompt_toolkit.widgets import Frame, Box
+from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.application import Application
+import asyncio
 
 
 class ViewInterface:
@@ -33,11 +39,13 @@ class ViewInterface:
             'error': '#ff0000 bold',      # Red error text
             'user': '#ff00ff',            # Magenta user messages
             'context': '#aaaaaa italic',  # Gray context info
+            'pending-tools-frame': '#ffff00',  # Yellow border for pending tools
         })
 
         self.bindings = self._setup_key_bindings()
         self.history_file = '.ai_chat_history'
         self.completer = self._create_completer()
+        self.pending_tools = []  # 存储待批准的工具列表
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Set up custom key bindings for the chat interface."""
@@ -78,6 +86,7 @@ class ViewInterface:
             '$reset': None,
             '$pwd': None,
             '$cd': path_completer,
+            '$approve': None,  # 添加批准工具的命令
         })
         
         return completer
@@ -120,6 +129,26 @@ class ViewInterface:
         # Show current working directory
         current_dir = os.getcwd()
         self.display_system_message(f"Current directory: {current_dir}", 'context')
+
+        # 显示待批准的工具列表
+        if self.pending_tools:
+            # 打印带黄色边框的待批准工具列表
+            border_line = "+" + "=" * 48 + "+"
+            separator_line = "+" + "-" * 48 + "+"
+            self.display_system_message(border_line, 'info')
+            header = "Pending tools for approval:"
+            self.display_system_message(f"| {header.ljust(46)} |", 'info')
+            self.display_system_message(border_line, 'info')
+            for i, tool in enumerate(self.pending_tools):
+                tool_desc = f"  {i+1}. {tool.get('desc', 'Unknown tool')}"
+                # 确保文本适合边框内
+                if len(tool_desc) > 46:
+                    tool_desc = tool_desc[:43] + "..."
+                self.display_system_message(f"| {tool_desc.ljust(46)} |", 'info')
+            self.display_system_message(separator_line, 'info')
+            footer = "Type '$approve' to execute all pending tools"
+            self.display_system_message(f"| {footer.ljust(46)} |", 'info')
+            self.display_system_message(border_line, 'info')
 
     def display_ai_header(self):
         """Display the AI response header."""
@@ -232,6 +261,16 @@ class ViewInterface:
                 error_msg = f"Error changing directory to home: {str(e)}"
                 self.display_system_message(error_msg, 'error')
                 result['handled'] = True
+        elif command == '$approve':
+            # 批准执行工具
+            if self.pending_tools:
+                self.display_system_message(f"Approved execution of {len(self.pending_tools)} tool(s)", 'info')
+                result['handled'] = True
+                result['approved_tools'] = self.pending_tools.copy()
+                self.pending_tools.clear()
+            else:
+                self.display_system_message("No pending tools to approve", 'info')
+                result['handled'] = True
                 
         return result
 
@@ -252,6 +291,7 @@ class ViewInterface:
         print("  $reset      - Reset conversation history")
         print("  $pwd        - Show current directory")
         print("  $cd [path]  - Change directory")
+        print("  $approve    - Approve and execute pending tools")
         print()
         print("Special key bindings:")
         print("  Ctrl+C - Clear current input or exit if empty")
