@@ -733,84 +733,76 @@ class LLMProxy:
 
         return outside_content, inside_content
 
-    def process_tagged_stream_v2(self, chunk: str, tag_name: str) -> Tuple[str, str]:
-        """
-        Incrementally process a stream chunk and separate content inside and outside the specified tag.
-        Handles partial tags and maintains internal state across chunks.
-        """
 
-        start_tag = f"<{tag_name}>"
-        end_tag = f"</{tag_name}>"
-
-        if not hasattr(self, "_tag_buffer"):
-            self._tag_buffer = {}
-        if tag_name not in self._tag_buffer:
-            self._tag_buffer[tag_name] = {
-                "partial": "",   # 跨chunk残留部分
-                "inside": False  # 当前是否处于标签内部
-            }
-
-        state = self._tag_buffer[tag_name]
-
-        # 拼接残留
-        data = state["partial"] + chunk
-        state["partial"] = ""
-
-        outside_content = ""
-        inside_content = ""
-        i = 0
-        while i < len(data):
-            if not state["inside"]:
-                # 找 start_tag
-                start_idx = data.find(start_tag, i)
-                if start_idx == -1:
-                    # 检查是否结尾是 start_tag 的前缀
-                    prefix_len = 0
-                    for k in range(1, len(start_tag)):
-                        if data.endswith(start_tag[:k]):
-                            prefix_len = k
-                    if prefix_len > 0:
-                        # 把完整的前缀留作 partial
-                        state["partial"] = data[-prefix_len:]
-                        outside_content += data[i:len(data)-prefix_len]
-                    else:
-                        outside_content += data[i:]
-                    break
+def process_tagged_stream_v2(chunk: str, tag_name: str, tag_buffer: dict) -> Tuple[str, str]:
+    """
+    Incrementally process a stream chunk and separate content inside and outside the specified tag.
+    Handles partial tags and maintains internal state across chunks.
+    """
+    start_tag = f"<{tag_name}>"
+    end_tag = f"</{tag_name}>"
+    if tag_name not in tag_buffer:
+        tag_buffer[tag_name] = {
+            "partial": "",   # 跨chunk残留部分
+            "inside": False  # 当前是否处于标签内部
+        }
+    state = tag_buffer[tag_name]
+    # 拼接残留
+    data = state["partial"] + chunk
+    state["partial"] = ""
+    outside_content = ""
+    inside_content = ""
+    i = 0
+    while i < len(data):
+        if not state["inside"]:
+            # 找 start_tag
+            start_idx = data.find(start_tag, i)
+            if start_idx == -1:
+                # 检查是否结尾是 start_tag 的前缀
+                prefix_len = 0
+                for k in range(1, len(start_tag)):
+                    if data.endswith(start_tag[:k]):
+                        prefix_len = k
+                if prefix_len > 0:
+                    # 把完整的前缀留作 partial
+                    state["partial"] = data[-prefix_len:]
+                    outside_content += data[i:len(data)-prefix_len]
                 else:
-                    # 输出 start_tag 前的部分
-                    outside_content += data[i:start_idx]
-                    i = start_idx + len(start_tag)
-                    state["inside"] = True
+                    outside_content += data[i:]
+                break
             else:
-                # inside 模式
-                end_idx = data.find(end_tag, i)
-                if end_idx == -1:
-                    # 检查结尾是否是 end_tag 的前缀
-                    prefix_len = 0
-                    for k in range(1, len(end_tag)):
-                        if data.endswith(end_tag[:k]):
-                            prefix_len = k
-                    if prefix_len > 0:
-                        state["partial"] = data[-prefix_len:]
-                        inside_content += data[i:len(data)-prefix_len]
-                    else:
-                        inside_content += data[i:]
-                    break
+                # 输出 start_tag 前的部分
+                outside_content += data[i:start_idx]
+                i = start_idx + len(start_tag)
+                state["inside"] = True
+        else:
+            # inside 模式
+            end_idx = data.find(end_tag, i)
+            if end_idx == -1:
+                # 检查结尾是否是 end_tag 的前缀
+                prefix_len = 0
+                for k in range(1, len(end_tag)):
+                    if data.endswith(end_tag[:k]):
+                        prefix_len = k
+                if prefix_len > 0:
+                    state["partial"] = data[-prefix_len:]
+                    inside_content += data[i:len(data)-prefix_len]
                 else:
-                    inside_content += data[i:end_idx]
-                    i = end_idx + len(end_tag)
-                    state["inside"] = False
-
-        # 关键修正：确保 partial 真的是一个标签前缀，而不是误包含标签内容
-        if state["partial"]:
-            # 如果 partial 中没有 '<'，说明没必要保留
-            if '<' not in state["partial"]:
-                state["partial"] = ''
-            # 如果 partial 同时包含 '>'，说明已经完整，不应该保留
-            elif '>' in state["partial"]:
-                state["partial"] = ''
-
-        return outside_content, inside_content
+                    inside_content += data[i:]
+                break
+            else:
+                inside_content += data[i:end_idx]
+                i = end_idx + len(end_tag)
+                state["inside"] = False
+    # 关键修正：确保 partial 真的是一个标签前缀，而不是误包含标签内容
+    if state["partial"]:
+        # 如果 partial 中没有 '<'，说明没必要保留
+        if '<' not in state["partial"]:
+            state["partial"] = ''
+        # 如果 partial 同时包含 '>'，说明已经完整，不应该保留
+        elif '>' in state["partial"]:
+            state["partial"] = ''
+    return outside_content, inside_content
 
 
 if __name__ == "__main__":
@@ -944,9 +936,11 @@ if __name__ == "__main__":
         outside_parts = []
         inside_parts = []
         llm_proxy = LLMProxy(None, None)
+        tag_buffer = {}
         for chunk in chunks:
-            outside, inside = llm_proxy.process_tagged_stream_v2(
-                chunk, "think")
+            # outside, inside = llm_proxy.process_tagged_stream_v2(
+            outside, inside = process_tagged_stream_v2(
+                chunk, "think", tag_buffer)
             if outside:
                 outside_parts.append(outside)
             if inside:
