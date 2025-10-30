@@ -31,6 +31,8 @@ class TooTask:
         try:
             while True:
                 try:
+                    finish_task_executions = []
+                    
                     # Display conversation context
                     # Include Pending Tools Execution if any
                     self.view_interface.display_conversation_context(
@@ -48,7 +50,9 @@ class TooTask:
                             if 'approved_tools' in command_result:
                                 self._execute_approved_tools(
                                     command_result['approved_tools'])
-                            continue
+                                finish_task_executions = command_result['approved_tools']
+                            else:
+                                continue
 
                     # Check for exit conditions
                     if user_message.lower() in ['quit', 'exit', 'bye'] or user_message == '$exit':
@@ -72,9 +76,28 @@ class TooTask:
                             "timestamp": get_current_timestamp()
                         })
 
-                    # Process user input
-                    task_data = self.llm_proxy.process_user_input(
-                        user_message, self.conversation_history)
+                    # Process tools input
+                    """
+                    todo:
+                        finish_task_executions 如果有执行结果, 则执行 Process tools input
+                        这从里面获取工具的执行结果("__"开头的一个属性)
+                        task_data = self.llm_proxy.process_tools_input(tool_results, self.conversation_history)
+                        在process_tools_input的实现中, 你要使用tool_results 加 环境信息(get_environment_details) 合并为一个大模型的输入
+                    """
+                    
+                    
+                    """
+                    todo:
+                        如果 finish_task_executions 中没有执行结果, 则执行 Process user input
+                    """
+                    # Check if we have tool execution results to process
+                    if finish_task_executions:
+                        # Process tools input
+                        task_data = self.llm_proxy.process_tools_input(finish_task_executions, self.conversation_history)
+                    else:
+                        # Process user input
+                        task_data = self.llm_proxy.process_user_input(
+                            user_message, self.conversation_history)
 
                     # Execute task
                     execution_result = self.llm_proxy.execute_task(
@@ -113,8 +136,9 @@ class TooTask:
             if "__callback" in tool:
                 try:
                     result = tool["__callback"]()
+                    tool["__execution_result"] = result
                     self.view_interface.display_system_message(
-                        f"Tool execution result: {result[:16]}", 'info')
+                        f"Tool execution result: {result[:32]}", 'info')
                 except Exception as e:
                     self.view_interface.display_system_message(
                         f"Error executing tool: {str(e)}", 'error')

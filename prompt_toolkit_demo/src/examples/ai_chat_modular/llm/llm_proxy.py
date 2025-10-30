@@ -34,6 +34,52 @@ class LLMProxy:
         self.llm = llm_provider
         self.tools = {}  # Dictionary to hold available tools
 
+    def process_tools_input(self, tool_results: List[Dict], conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
+        """
+        Process tool execution results and combine them with environment information.
+
+        Args:
+            tool_results: List of tool execution results
+            conversation_history: The conversation history
+
+        Returns:
+            Dictionary with processing results
+        """
+        # Extract tool execution results
+        tool_execution_results = []
+        for tool in tool_results:
+            if "__execution_result" in tool:
+                tool_execution_results.append({
+                    "name": tool.get("__name", "unknown"),
+                    "result": tool["__execution_result"]
+                })
+
+        # Get environment details
+        env_proxy = EnvironmentProxy()
+        environment_details = get_environment_details(env_proxy)
+
+        # Create tool results message
+        tool_results_content = "<tool_execution_results>\n"
+        for result in tool_execution_results:
+            tool_results_content += f"<tool name='{result['name']}'>\n{result['result']}\n</tool>\n"
+        tool_results_content += "</tool_execution_results>"
+
+        # Combine tool results with environment information
+        combined_content = f"{tool_results_content}\n{environment_details}"
+
+        # Add to conversation history
+        result = {
+            'conversation_history': conversation_history.copy()
+        }
+        
+        result['conversation_history'].append({
+            "role": "user",
+            "content": combined_content,
+            "timestamp": get_current_timestamp()
+        })
+
+        return result
+
     def process_user_input(self, user_input: str, conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
         """
         Process user input and determine if tools are needed.
