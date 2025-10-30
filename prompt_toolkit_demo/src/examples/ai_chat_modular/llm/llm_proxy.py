@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING, Tuple
 
 from ..environment.user_message_environment_detail import get_environment_details
 from ..environment.environment_proxy import EnvironmentProxy
@@ -558,3 +558,102 @@ class LLMProxy:
                 "__callback": __run_write_to_file,
             }
         return "写入文件参数缺失"
+
+
+    def process_tagged_stream(self, chunk: str, tag_name: str) -> Tuple[str, str]:
+        """
+        Process a stream chunk and separate content inside and outside the specified tag.
+
+        This function handles cases where chunks are randomly split and tags may be incomplete.
+
+        Args:
+            chunk: The incoming stream chunk
+            tag_name: The tag name to look for (e.g., "think")
+
+        Returns:
+            A tuple of (outside_content, inside_content) where:
+            - outside_content: Content outside the tag
+            - inside_content: Content inside the tag (empty if not currently inside tag)
+        """
+        start_tag = f"<{tag_name}>"
+        end_tag = f"</{tag_name}>"
+        
+        # 构建start_tag的所有前缀数组
+        start_tag_prefixes = [start_tag[:i] for i in range(1, len(start_tag) + 1)]
+        
+        # 如果需要，也可以构建end_tag的所有前缀数组
+        end_tag_prefixes = [end_tag[:i] for i in range(1, len(end_tag) + 1)]
+        
+        # 这里可以使用这些前缀数组进行进一步处理
+        # 例如，检查当前chunk是否包含任何前缀
+        # ... 其他处理逻辑 ...
+        
+        pass
+
+    def test_process_tagged_stream(self, tag_name: str = "think"):
+        """
+        Test function for process_tagged_stream with various chunk scenarios.
+        """
+        # Test cases based on the examples provided
+        test_cases = [
+            f"xxx<{tag_name}>",     # Partial opening tag
+            f"xxx<{tag_name[:2]}",           # Simple outside content
+            f"xxx<{tag_name}",     # Partial opening tag
+            f"xxx<{tag_name}321",     # Partial opening tag
+            f"xxx<{tag_name}>123</{tag_name}>tttt",    # Complete opening tag
+            f"xxx<{tag_name}>123",  # Content inside tag
+            f"</{tag_name}>xxx",   # Partial closing tag
+        ]
+        
+        # 添加更多随机chunk组合情况
+        additional_test_cases = [
+            # 随机组合chunks
+            ["hello ", "<think", ">thinking content</thi", "nk> goodbye"],
+            ["<think>thought 1</think>", "some text", "<think>thought 2</think>"],
+            ["partial<thinking", ">", "more content", "</think", "ing>"],
+            ["<think>deep<think>nested</think>thinking</think>"],
+            ["<think><think>double nested</think></think>"],
+            ["no tags here", "just regular text"],
+            ["<think>start", " middle ", "end</think>"],
+            ["<think>incomplete"],
+            ["</think>trailing close", "<think>new start</think>"],
+            ["<think>mismatched</thinking>"],  # 不匹配的标签
+            ["<think>content with <special> chars</special></think>"],
+            ["", "<think>", "", "content", "", "</think>", ""],  # 空chunks
+            ["<think>content</think><think>more content</think>"],  # 连续标签
+            ["<think>multi", "line\ncontent", "with\nbreaks</think>"],  # 多行内容
+        ]
+        
+        print("Testing process_tagged_stream function:")
+        print("=" * 50)
+
+        # 测试原始用例
+        print("Original test cases:")
+        self._tag_buffer = {}
+        for i, chunk in enumerate(test_cases):
+            outside, inside = self.process_tagged_stream(chunk, tag_name)
+            print(f"Chunk {i+1}: '{chunk}'")
+            print(f"  Outside: '{outside}'")
+            print(f"  Inside: '{inside}'")
+            print()
+            
+        # 测试额外的随机组合情况
+        print("\nAdditional random combination test cases:")
+        print("-" * 40)
+        for i, chunks in enumerate(additional_test_cases):
+            print(f"Test case {i+1}: {chunks}")
+            self._tag_buffer = {}  # 重置状态以进行干净测试
+            accumulated_outside = ""
+            accumulated_inside = ""
+            for j, chunk in enumerate(chunks):
+                outside, inside = self.process_tagged_stream(chunk, tag_name)
+                accumulated_outside += outside
+                accumulated_inside += inside
+                print(f"  Chunk {j+1} ('{chunk}') => Outside: '{outside}', Inside: '{inside}'")
+            print(f"  Accumulated - Outside: '{accumulated_outside}', Inside: '{accumulated_inside}'")
+            print()
+    if __name__ == "__main__":
+        # 创建一个 LLMProxy 实例来测试 test_process_tagged_stream 方法
+        # 因为 test_process_tagged_stream 不依赖于其他组件，所以可以传入 None
+        llm_proxy = LLMProxy(None, None)  # type: ignore
+        llm_proxy.test_process_tagged_stream()
