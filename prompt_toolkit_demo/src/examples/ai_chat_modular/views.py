@@ -76,7 +76,7 @@ class ViewInterface:
             min_input_len=0,
             get_paths=None
         )
-        
+
         # Create a nested completer with $ commands
         completer = NestedCompleter.from_nested_dict({
             '$add': path_completer,
@@ -88,7 +88,7 @@ class ViewInterface:
             '$cd': path_completer,
             '$approve': None,  # 添加批准工具的命令
         })
-        
+
         return completer
 
     def display_system_message(self, message: str, msg_type: str = 'info'):
@@ -125,13 +125,21 @@ class ViewInterface:
         # Show current time
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.display_system_message(f"Current time: {current_time}", 'context')
-        
+
         # Show current working directory
         current_dir = os.getcwd()
-        self.display_system_message(f"Current directory: {current_dir}", 'context')
+        self.display_system_message(
+            f"Current directory: {current_dir}", 'context')
 
         # 显示待批准的工具列表
         if self.pending_tools:
+            # +================================================+
+            # | Pending tools for approval:                    |
+            # +================================================+
+            # |   1. 读取文件 src/main/java/com/jialtang/cg/man... |
+            # +------------------------------------------------+
+            # | Type '$approve' to execute all pending tools   |
+            # +================================================+
             # 打印带黄色边框的待批准工具列表
             border_line = "+" + "=" * 48 + "+"
             separator_line = "+" + "-" * 48 + "+"
@@ -144,7 +152,8 @@ class ViewInterface:
                 # 确保文本适合边框内
                 if len(tool_desc) > 46:
                     tool_desc = tool_desc[:43] + "..."
-                self.display_system_message(f"| {tool_desc.ljust(46)} |", 'info')
+                self.display_system_message(
+                    f"| {tool_desc.ljust(46)} |", 'info')
             self.display_system_message(separator_line, 'info')
             footer = "Type '$approve' to execute all pending tools"
             self.display_system_message(f"| {footer.ljust(46)} |", 'info')
@@ -207,45 +216,47 @@ class ViewInterface:
     def process_command(self, user_input: str) -> Dict[str, Any]:
         """
         Process special $ commands that affect the view layer.
-        
+
         Args:
             user_input: The user's command input
-            
+
         Returns:
             Dictionary with processing results
         """
         parts = user_input.split(' ', 1)
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ""
-        
+
         result = {
             'command': command,
             'args': args,
             'handled': False
         }
-        
+
         if command == '$pwd':
             # Show current directory
             current_dir = os.getcwd()
-            self.display_system_message(f"Current directory: {current_dir}", 'info')
+            self.display_system_message(
+                f"Current directory: {current_dir}", 'info')
             result['handled'] = True
         elif command == '$cd' and args:
             # Change directory
             try:
                 # Expand user path (e.g., ~/directory)
                 expanded_path = os.path.expanduser(args)
-                
+
                 # If it's a relative path, make it relative to the current directory
                 if not os.path.isabs(expanded_path):
                     expanded_path = os.path.join(os.getcwd(), expanded_path)
-                
+
                 # Change directory
                 os.chdir(expanded_path)
-                
+
                 # Show success message
-                self.display_system_message(f"Changed directory to: {expanded_path}", 'info')
+                self.display_system_message(
+                    f"Changed directory to: {expanded_path}", 'info')
                 result['handled'] = True
-                
+
             except Exception as e:
                 error_msg = f"Error changing directory to {args}: {str(e)}"
                 self.display_system_message(error_msg, 'error')
@@ -255,7 +266,8 @@ class ViewInterface:
             try:
                 home_dir = os.path.expanduser("~")
                 os.chdir(home_dir)
-                self.display_system_message(f"Changed to home directory: {home_dir}", 'info')
+                self.display_system_message(
+                    f"Changed to home directory: {home_dir}", 'info')
                 result['handled'] = True
             except Exception as e:
                 error_msg = f"Error changing directory to home: {str(e)}"
@@ -264,14 +276,16 @@ class ViewInterface:
         elif command == '$approve':
             # 批准执行工具
             if self.pending_tools:
-                self.display_system_message(f"Approved execution of {len(self.pending_tools)} tool(s)", 'info')
+                self.display_system_message(
+                    f"Approved execution of {len(self.pending_tools)} tool(s)", 'info')
                 result['handled'] = True
                 result['approved_tools'] = self.pending_tools.copy()
                 self.pending_tools.clear()
             else:
-                self.display_system_message("No pending tools to approve", 'info')
+                self.display_system_message(
+                    "No pending tools to approve", 'info')
                 result['handled'] = True
-                
+
         return result
 
     def show_instructions(self):

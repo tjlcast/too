@@ -32,11 +32,10 @@ class TooTask:
             while True:
                 try:
                     # Display conversation context
+                    # Include Pending Tools Execution if any
                     self.view_interface.display_conversation_context(
                         self.conversation_history)
 
-                    # todo
-                    # 这里修改, 除了接受用户输入信息以外, 如果再上轮中出现了 tools的调用列表, 用户也可通过触发approve来批准执行这些tools.
                     # Get user input
                     user_message = self.view_interface.get_user_input()
 
@@ -47,7 +46,8 @@ class TooTask:
                         if command_result['handled']:
                             # 如果是批准工具的命令，执行工具
                             if 'approved_tools' in command_result:
-                                self._execute_approved_tools(command_result['approved_tools'])
+                                self._execute_approved_tools(
+                                    command_result['approved_tools'])
                             continue
 
                     # Check for exit conditions
@@ -90,7 +90,8 @@ class TooTask:
                     self.conversation_history = processing_result['conversation_history']
 
                     # 保存对话交换
-                    self._save_conversation_exchange(task_data, processing_result)
+                    self._save_conversation_exchange(
+                        task_data, processing_result)
 
                     self.view_interface.display_newline()
 
@@ -113,7 +114,7 @@ class TooTask:
                 try:
                     result = tool["__callback"]()
                     self.view_interface.display_system_message(
-                        f"Tool execution result: {result}", 'info')
+                        f"Tool execution result: {result[:16]}", 'info')
                 except Exception as e:
                     self.view_interface.display_system_message(
                         f"Error executing tool: {str(e)}", 'error')

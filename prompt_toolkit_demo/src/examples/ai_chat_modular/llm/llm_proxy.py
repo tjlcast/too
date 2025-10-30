@@ -140,27 +140,36 @@ class LLMProxy:
 
             # 如果检测到完整的工具调用并执行完成
             # 这时候让 view 出现一个 tools 的调用工具列表(注意, 这里可能有多个, for循环中逐步补充)
-            
+
             if tool_detected and 'execution_result' in processed_chunk:
-                execution_result = processed_chunk['execution_result']
+                """
+                这里的 tool_exec_hook 是一个从流中解析出的tool调用字典，包含回调函数和参数
+                tool_exec_hook = {
+                    "__callback": callback_function,
+                    "__name": name,
+                    "desc": xxx
+                }
+                """
+                tool_exec_hook = processed_chunk['execution_result']
                 execution_params = processed_chunk.get('execution_params', '')
                 # 如果执行结果是一个字典（包含回调函数），则添加到待批准列表
-                if isinstance(execution_result, dict) and "__callback" in execution_result:
-                    self.view.pending_tools.append(execution_result)
+                if isinstance(tool_exec_hook, dict) and "__callback" in tool_exec_hook:
+                    # 这里向view添加待批准的工具
+                    self.view.pending_tools.append(tool_exec_hook)
                     tools_situations.append({
                         "execution_params": execution_params,
-                        "execution_result": execution_result,
+                        "execution_result": tool_exec_hook,
                     })
-                    self.view.display_ai_message_chunk(
-                        f"\n[Tool detected: {execution_result.get('desc', 'Unknown tool')}]")
+                    # self.view.display_ai_message_chunk(
+                    #     f"\n[Tool detected: {execution_result.get('desc', 'Unknown tool')}]")
                 # 如果是字符串结果，直接显示
-                elif isinstance(execution_result, str):
+                elif isinstance(tool_exec_hook, str):
                     tools_situations.append({
                         "execution_params": execution_params,
-                        "execution_result": execution_result,
+                        "execution_result": tool_exec_hook,
                     })
                     self.view.display_ai_message_chunk(
-                        f"【工具执行结果】{execution_result}")
+                        f"【工具执行结果】{tool_exec_hook}")
 
         self.view.display_newline()
 
