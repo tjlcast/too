@@ -559,7 +559,6 @@ class LLMProxy:
             }
         return "写入文件参数缺失"
 
-
     def process_tagged_stream(self, chunk: str, tag_name: str) -> Tuple[str, str]:
         """
         Process a stream chunk and separate content inside and outside the specified tag.
@@ -577,83 +576,390 @@ class LLMProxy:
         """
         start_tag = f"<{tag_name}>"
         end_tag = f"</{tag_name}>"
-        
-        # 构建start_tag的所有前缀数组
-        start_tag_prefixes = [start_tag[:i] for i in range(1, len(start_tag) + 1)]
-        
-        # 如果需要，也可以构建end_tag的所有前缀数组
-        end_tag_prefixes = [end_tag[:i] for i in range(1, len(end_tag) + 1)]
-        
-        # 这里可以使用这些前缀数组进行进一步处理
-        # 例如，检查当前chunk是否包含任何前缀
-        # ... 其他处理逻辑 ...
-        
-        pass
 
-    def test_process_tagged_stream(self, tag_name: str = "think"):
-        """
-        Test function for process_tagged_stream with various chunk scenarios.
-        """
-        # Test cases based on the examples provided
-        test_cases = [
-            f"xxx<{tag_name}>",     # Partial opening tag
-            f"xxx<{tag_name[:2]}",           # Simple outside content
-            f"xxx<{tag_name}",     # Partial opening tag
-            f"xxx<{tag_name}321",     # Partial opening tag
-            f"xxx<{tag_name}>123</{tag_name}>tttt",    # Complete opening tag
-            f"xxx<{tag_name}>123",  # Content inside tag
-            f"</{tag_name}>xxx",   # Partial closing tag
-        ]
-        
-        # 添加更多随机chunk组合情况
-        additional_test_cases = [
-            # 随机组合chunks
-            ["hello ", "<think", ">thinking content</thi", "nk> goodbye"],
-            ["<think>thought 1</think>", "some text", "<think>thought 2</think>"],
-            ["partial<thinking", ">", "more content", "</think", "ing>"],
-            ["<think>deep<think>nested</think>thinking</think>"],
-            ["<think><think>double nested</think></think>"],
-            ["no tags here", "just regular text"],
-            ["<think>start", " middle ", "end</think>"],
-            ["<think>incomplete"],
-            ["</think>trailing close", "<think>new start</think>"],
-            ["<think>mismatched</thinking>"],  # 不匹配的标签
-            ["<think>content with <special> chars</special></think>"],
-            ["", "<think>", "", "content", "", "</think>", ""],  # 空chunks
-            ["<think>content</think><think>more content</think>"],  # 连续标签
-            ["<think>multi", "line\ncontent", "with\nbreaks</think>"],  # 多行内容
-        ]
-        
-        print("Testing process_tagged_stream function:")
-        print("=" * 50)
+        # 初始化缓冲区（如果不存在）
+        if not hasattr(self, '_tag_buffer'):
+            self._tag_buffer = {}
 
-        # 测试原始用例
-        print("Original test cases:")
-        self._tag_buffer = {}
-        for i, chunk in enumerate(test_cases):
-            outside, inside = self.process_tagged_stream(chunk, tag_name)
-            print(f"Chunk {i+1}: '{chunk}'")
-            print(f"  Outside: '{outside}'")
-            print(f"  Inside: '{inside}'")
-            print()
-            
-        # 测试额外的随机组合情况
-        print("\nAdditional random combination test cases:")
-        print("-" * 40)
-        for i, chunks in enumerate(additional_test_cases):
-            print(f"Test case {i+1}: {chunks}")
-            self._tag_buffer = {}  # 重置状态以进行干净测试
-            accumulated_outside = ""
-            accumulated_inside = ""
-            for j, chunk in enumerate(chunks):
-                outside, inside = self.process_tagged_stream(chunk, tag_name)
-                accumulated_outside += outside
-                accumulated_inside += inside
-                print(f"  Chunk {j+1} ('{chunk}') => Outside: '{outside}', Inside: '{inside}'")
-            print(f"  Accumulated - Outside: '{accumulated_outside}', Inside: '{accumulated_inside}'")
-            print()
-    if __name__ == "__main__":
-        # 创建一个 LLMProxy 实例来测试 test_process_tagged_stream 方法
-        # 因为 test_process_tagged_stream 不依赖于其他组件，所以可以传入 None
-        llm_proxy = LLMProxy(None, None)  # type: ignore
-        llm_proxy.test_process_tagged_stream()
+        if tag_name not in self._tag_buffer:
+            self._tag_buffer[tag_name] = {
+                'state': 'outside',  # outside, inside, start_tag_partial, end_tag_partial
+                'buffer': '',
+                'partial_start': '',
+                'partial_end': ''
+            }
+
+        buffer_info = self._tag_buffer[tag_name]
+        state = buffer_info['state']
+        buffer_content = buffer_info['buffer']
+        partial_start = buffer_info['partial_start']
+        partial_end = buffer_info['partial_end']
+
+        outside_content = ""
+        inside_content = ""
+
+        # 处理当前chunk
+        current_text = chunk
+        i = 0
+
+        while i < len(current_text):
+            if state == 'outside':
+                # 在标签外部，寻找开始标签
+                start_pos = current_text.find(start_tag, i)
+
+                if start_pos != -1:
+                    # 找到完整的开始标签
+                    outside_content += current_text[i:start_pos]
+                    state = 'inside'
+                    i = start_pos + len(start_tag)
+                    buffer_content = ""
+                else:
+                    # 检查是否有部分开始标签
+                    found_partial = False
+                    for j in range(len(start_tag), 0, -1):
+                        partial = start_tag[:j]
+                        if current_text.endswith(partial, i, len(current_text)):
+                            # 找到部分开始标签
+                            outside_content += current_text[i:len(
+                                current_text)-j]
+                            partial_start = partial
+                            state = 'start_tag_partial'
+                            i = len(current_text)
+                            found_partial = True
+                            break
+
+                    if not found_partial:
+                        # 没有找到开始标签或部分开始标签
+                        outside_content += current_text[i:]
+                        i = len(current_text)
+
+            elif state == 'start_tag_partial':
+                # 之前有部分开始标签，现在尝试补全
+                remaining_needed = start_tag[len(partial_start):]
+
+                if current_text.startswith(remaining_needed, i):
+                    # 成功补全开始标签
+                    state = 'inside'
+                    buffer_content = ""
+                    i += len(remaining_needed)
+                    partial_start = ""
+                else:
+                    # 检查当前文本是否能形成更长的部分标签
+                    combined = partial_start + current_text[i:]
+                    found_extension = False
+
+                    for j in range(len(start_tag), len(partial_start), -1):
+                        if combined.startswith(start_tag[:j]):
+                            # 形成了更长的部分标签
+                            partial_start = start_tag[:j]
+                            i = len(current_text)
+                            found_extension = True
+                            break
+
+                    if not found_extension:
+                        # 无法补全，回到外部状态
+                        outside_content += partial_start + current_text[i:]
+                        state = 'outside'
+                        partial_start = ""
+                        i = len(current_text)
+
+            elif state == 'inside':
+                # 在标签内部，寻找结束标签
+                end_pos = current_text.find(end_tag, i)
+
+                if end_pos != -1:
+                    # 找到完整的结束标签
+                    inside_content += buffer_content + current_text[i:end_pos]
+                    state = 'outside'
+                    buffer_content = ""
+                    i = end_pos + len(end_tag)
+                else:
+                    # 检查是否有部分结束标签
+                    found_partial = False
+                    for j in range(len(end_tag), 0, -1):
+                        partial = end_tag[:j]
+                        if current_text.endswith(partial, i, len(current_text)):
+                            # 找到部分结束标签
+                            buffer_content += current_text[i:len(
+                                current_text)-j]
+                            partial_end = partial
+                            state = 'end_tag_partial'
+                            i = len(current_text)
+                            found_partial = True
+                            break
+
+                    if not found_partial:
+                        # 没有找到结束标签或部分结束标签
+                        buffer_content += current_text[i:]
+                        i = len(current_text)
+
+            elif state == 'end_tag_partial':
+                # 之前有部分结束标签，现在尝试补全
+                remaining_needed = end_tag[len(partial_end):]
+
+                if current_text.startswith(remaining_needed, i):
+                    # 成功补全结束标签
+                    inside_content += buffer_content
+                    state = 'outside'
+                    buffer_content = ""
+                    partial_end = ""
+                    i += len(remaining_needed)
+                else:
+                    # 检查当前文本是否能形成更长的部分结束标签
+                    combined = partial_end + current_text[i:]
+                    found_extension = False
+
+                    for j in range(len(end_tag), len(partial_end), -1):
+                        if combined.startswith(end_tag[:j]):
+                            # 形成了更长的部分结束标签
+                            partial_end = end_tag[:j]
+                            buffer_content += current_text[i:]
+                            i = len(current_text)
+                            found_extension = True
+                            break
+
+                    if not found_extension:
+                        # 无法补全，回到内部状态
+                        buffer_content += partial_end + current_text[i:]
+                        state = 'inside'
+                        partial_end = ""
+                        i = len(current_text)
+
+        # 更新缓冲区状态
+        buffer_info['state'] = state
+        buffer_info['buffer'] = buffer_content
+        buffer_info['partial_start'] = partial_start
+        buffer_info['partial_end'] = partial_end
+
+        return outside_content, inside_content
+
+    def process_tagged_stream_v2(self, chunk: str, tag_name: str) -> Tuple[str, str]:
+        """
+        Incrementally process a stream chunk and separate content inside and outside the specified tag.
+        Handles partial tags and maintains internal state across chunks.
+        """
+
+        start_tag = f"<{tag_name}>"
+        end_tag = f"</{tag_name}>"
+
+        if not hasattr(self, "_tag_buffer"):
+            self._tag_buffer = {}
+        if tag_name not in self._tag_buffer:
+            self._tag_buffer[tag_name] = {
+                "partial": "",   # 跨chunk残留部分
+                "inside": False  # 当前是否处于标签内部
+            }
+
+        state = self._tag_buffer[tag_name]
+
+        # 拼接残留
+        data = state["partial"] + chunk
+        state["partial"] = ""
+
+        outside_content = ""
+        inside_content = ""
+        i = 0
+        while i < len(data):
+            if not state["inside"]:
+                # 找 start_tag
+                start_idx = data.find(start_tag, i)
+                if start_idx == -1:
+                    # 检查是否结尾是 start_tag 的前缀
+                    prefix_len = 0
+                    for k in range(1, len(start_tag)):
+                        if data.endswith(start_tag[:k]):
+                            prefix_len = k
+                    if prefix_len > 0:
+                        # 把完整的前缀留作 partial
+                        state["partial"] = data[-prefix_len:]
+                        outside_content += data[i:len(data)-prefix_len]
+                    else:
+                        outside_content += data[i:]
+                    break
+                else:
+                    # 输出 start_tag 前的部分
+                    outside_content += data[i:start_idx]
+                    i = start_idx + len(start_tag)
+                    state["inside"] = True
+            else:
+                # inside 模式
+                end_idx = data.find(end_tag, i)
+                if end_idx == -1:
+                    # 检查结尾是否是 end_tag 的前缀
+                    prefix_len = 0
+                    for k in range(1, len(end_tag)):
+                        if data.endswith(end_tag[:k]):
+                            prefix_len = k
+                    if prefix_len > 0:
+                        state["partial"] = data[-prefix_len:]
+                        inside_content += data[i:len(data)-prefix_len]
+                    else:
+                        inside_content += data[i:]
+                    break
+                else:
+                    inside_content += data[i:end_idx]
+                    i = end_idx + len(end_tag)
+                    state["inside"] = False
+
+        # 关键修正：确保 partial 真的是一个标签前缀，而不是误包含标签内容
+        if state["partial"]:
+            # 如果 partial 中没有 '<'，说明没必要保留
+            if '<' not in state["partial"]:
+                state["partial"] = ''
+            # 如果 partial 同时包含 '>'，说明已经完整，不应该保留
+            elif '>' in state["partial"]:
+                state["partial"] = ''
+
+        return outside_content, inside_content
+
+
+if __name__ == "__main__":
+    # 创建一个 LLMProxy 实例来测试 test_process_tagged_stream 方法
+    # 因为 test_process_tagged_stream 不依赖于其他组件，所以可以传入 None
+
+    """
+    Test function for process_tagged_stream with various chunk scenarios.
+    """
+    # 合并测试用例和期望输出为一个数据结构
+    test_cases = [
+        # Test case 1: 随机组合chunks
+        {
+            "chunks": ["hello ", "<think", ">thinking content</thi", "nk> goodbye"],
+            "expected": {
+                "outside": "hello  goodbye",
+                "inside": "thinking content"
+            }
+        },
+        # Test case 2: 多个标签和普通文本混合
+        {
+            "chunks": ["<think>thought 1</think>", "some text", "<think>thought 2</think>"],
+            "expected": {
+                "outside": "some text",
+                "inside": "thought 1thought 2"
+            }
+        },
+        # Test case 3: 部分标签
+        {
+            "chunks": ["partial<thinking", ">", "more content", "</think", "ing>"],
+            "expected": {
+                "outside": "partial<thinking>more content</thinking>",
+                "inside": ""
+            }
+        },
+        # Test case 4: 嵌套标签
+        {
+            "chunks": ["<think>deep<think>nested</think>thinking</think>"],
+            "expected": {
+                "outside": "thinking</think>",
+                "inside": "deep<think>nested"
+            }
+        },
+        # Test case 5: 双重嵌套标签
+        {
+            "chunks": ["<think><think>double nested</think></think>"],
+            "expected": {
+                "outside": "</think>",
+                "inside": "<think>double nested"
+            }
+        },
+        # Test case 6: 无标签
+        {
+            "chunks": ["no tags here", "just regular text"],
+            "expected": {
+                "outside": "no tags herejust regular text",
+                "inside": ""
+            }
+        },
+        # Test case 7: 跨多个chunk的标签内容
+        {
+            "chunks": ["<think>start", " middle ", "end</think>"],
+            "expected": {
+                "outside": "",
+                "inside": "start middle end"
+            }
+        },
+        # Test case 8: 不完整的标签
+        {
+            "chunks": ["<think>incomplete"],
+            "expected": {
+                "outside": "",
+                "inside": "incomplete"
+            }
+        },
+        # Test case 9: 尾部闭合标签和新开始标签
+        {
+            "chunks": ["</think>trailing close", "<think>new start</think>"],
+            "expected": {
+                "outside": "</think>trailing close",
+                "inside": "new start"
+            }
+        },
+        # Test case 10: 不匹配的标签
+        {
+            "chunks": ["<think>mismatched</thinking>"],
+            "expected": {
+                "outside": "",
+                "inside": "mismatched</thinking>"
+            }
+        },
+        # Test case 11: 包含特殊字符的标签内容
+        {
+            "chunks": ["<think>content with <special> chars</special></think>"],
+            "expected": {
+                "outside": "",
+                "inside": "content with <special> chars</special>"
+            }
+        },
+        # Test case 12: 空chunks
+        {
+            "chunks": ["", "<think>", "", "content", "", "</think>", ""],
+            "expected": {
+                "outside": "",
+                "inside": "content"
+            }
+        },
+        # Test case 13: 连续标签
+        {
+            "chunks": ["<think>content</think><think>more content</think>"],
+            "expected": {
+                "outside": "",
+                "inside": "contentmore content"
+            }
+        },
+        # Test case 14: 多行内容
+        {
+            "chunks": ["<think>multi", "line\ncontent", "with\nbreaks</think>"],
+            "expected": {
+                "outside": "",
+                "inside": "multiline\ncontentwith\nbreaks"
+            }
+        }
+    ]
+    print("Testing process_tagged_stream function:")
+    print("=" * 50)
+    for i, test_case in enumerate(test_cases):
+        chunks = test_case["chunks"]
+        expected = test_case["expected"]
+        print(f"\nTest case {i+1}: {chunks}")
+        outside_parts = []
+        inside_parts = []
+        llm_proxy = LLMProxy(None, None)
+        for chunk in chunks:
+            outside, inside = llm_proxy.process_tagged_stream_v2(
+                chunk, "think")
+            if outside:
+                outside_parts.append(outside)
+            if inside:
+                inside_parts.append(inside)
+        final_outside = ''.join(outside_parts)
+        final_inside = ''.join(inside_parts)
+        print(f"  Outside: '{final_outside}'")
+        print(f"  Inside:  '{final_inside}'")
+        print(f"  Expected Outside: '{expected['outside']}'")
+        print(f"  Expected Inside:  '{expected['inside']}'")
+        assert final_outside == expected[
+            'outside'], f"Outside mismatch in test case {i+1}"
+        assert final_inside == expected[
+            'inside'], f"Inside mismatch in test case {i+1}"
+        print(f"  ✓ Test case {i+1} passed")
+    print("\nAll tests passed! ✓")
