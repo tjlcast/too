@@ -11,6 +11,9 @@ from .llm_proxy import LLMProxy
 
 class MockViewInterface:
     """Mock view interface for testing"""
+    
+    def __init__(self):
+        self.pending_tools = []
 
     def display_ai_header(self):
         print("AI: ", end="", flush=True)

@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from ..environment.user_message_environment_detail import get_environment_details
 from ..environment.environment_proxy import EnvironmentProxy
@@ -21,8 +21,12 @@ from ..tools.search_files.run import run as run_search_files
 from ..tools.write_to_file.run import run as run_write_to_file
 
 
+if TYPE_CHECKING:
+    from ..views import ViewInterface
+
+
 class LLMProxy:
-    def __init__(self, view_interface, llm_provider):
+    def __init__(self, view_interface: 'ViewInterface', llm_provider: 'LLMProvider'):
         """
         Initialize the tool task handler.
 
@@ -71,7 +75,7 @@ class LLMProxy:
         result = {
             'conversation_history': conversation_history.copy()
         }
-        
+
         result['conversation_history'].append({
             "role": "user",
             "content": combined_content,
@@ -148,83 +152,228 @@ class LLMProxy:
         """
         Process the AI response stream and handle tool calls in real-time.
 
-        Args:
-            response_stream: Stream of response chunks from the LLM
-            conversation_history: The conversation history
-
-        Returns:
-            Dictionary with processing results
+        This version is robust to arbitrary chunk boundaries: it accumulates incoming
+        chunks into a buffer and processes the buffer to safely extract:
+          - plain text that can be displayed
+          - complete tool XML blocks for parsing/execution
+        Partial tags (e.g. "<to", "<execu") are never output until they are confirmed
+        to be non-tool text or completed into a full tag + matching closing tag.
         """
         tools_situations = []
         full_response = ""
         self.view.display_ai_header()
 
-        # 工具调用相关的状态变量
-        current_tool_buffer = ""  # 当前正在构建的工具调用缓冲区
-        in_tool_call = False  # 是否正在处理工具调用
-        current_tool_tag = ""  # 当前工具标签名
-        tool_depth = 0  # XML标签深度计数器
+        # buffer holds data not yet safely displayed/consumed
+        buffer = ""
+        tool_tags = [
+            'execute_command', 'insert_content', 'list_files', 'read_file',
+            'search_and_replace', 'search_files', 'write_to_file'
+        ]
+        max_tool_tag_len = max(len(t) for t in tool_tags)
 
-        # 收集流式响应的token并实时处理工具调用
+        # helper: process current buffer and extract displayable texts and tool blocks
+        def _drain_buffer(buf: str):
+            """
+            Process buffer and yield tuples:
+              ("text", text_to_display)
+              ("tool", full_tool_xml)
+            Returns (remaining_buffer, list_of_outputs)
+            """
+            outputs = []
+            pos = 0
+            while True:
+                # find earliest full start-tag for any tool
+                earliest = None
+                earliest_tag = None
+                for tag in tool_tags:
+                    m = re.search(rf"<{tag}\b", buf[pos:])
+                    if m:
+                        found_at = pos + m.start()
+                        if earliest is None or found_at < earliest:
+                            earliest = found_at
+                            earliest_tag = tag
+
+                if earliest is None:
+                    # No full start tag found.
+                    # We can safely display most of buffer, but must keep possible partial prefix
+                    # that could be the beginning of a tag, e.g. "<", "<to", "<exec".
+                    # Strategy:
+                    #   - find last '<' in buf
+                    #   - if substring after last '<' is a prefix of any tool tag, withhold it.
+                    #   - otherwise, display all.
+                    last_lt = buf.rfind('<')
+                    if last_lt == -1:
+                        # no '<' at all: safe to display all
+                        outputs.append(("text", buf))
+                        buf = ""
+                    else:
+                        suffix = buf[last_lt+1:]  # after '<'
+                        # if suffix might be prefix of any tool tag, withhold from display
+                        may_be_tool_prefix = False
+                        for tag in tool_tags:
+                            if tag.startswith(suffix):
+                                may_be_tool_prefix = True
+                                break
+                        if may_be_tool_prefix:
+                            # display until last_lt, keep the rest
+                            if last_lt > 0:
+                                outputs.append(("text", buf[:last_lt]))
+                                buf = buf[last_lt:]
+                            # else last_lt == 0 -> keep whole buffer
+                        else:
+                            # '<' exists but definitely not start of our tool tags: safe to display all
+                            outputs.append(("text", buf))
+                            buf = ""
+                    break  # drained as much as possible for now
+
+                # earliest is start position of a tool start-tag
+                start_pos = earliest
+                tag = earliest_tag
+                # display everything before start_pos as plain text (if any)
+                if start_pos > 0:
+                    outputs.append(("text", buf[:start_pos]))
+                # Now we need to find matching end tag considering nesting for the same tag
+                open_tag = f"<{tag}"
+                close_tag = f"</{tag}>"
+
+                # We'll scan from start_pos forward counting occurrences of open_tag (only full open like "<tag" with word boundary)
+                scan_pos = start_pos
+                depth = 0
+                found_complete = False
+                while True:
+                    # find next open or close tag occurrence
+                    next_open = re.search(rf"<{tag}\b", buf[scan_pos:])
+                    next_close = buf.find(close_tag, scan_pos)
+                    # normalize positions relative to buf
+                    next_open_pos = (scan_pos + next_open.start()
+                                     ) if next_open else None
+                    next_close_pos = next_close if next_close != -1 else None
+
+                    # If there's an open before close, increase depth and continue
+                    if next_open_pos is not None and (next_close_pos is None or next_open_pos < next_close_pos):
+                        depth += 1
+                        scan_pos = next_open_pos + len(open_tag)
+                        # continue scanning
+                    elif next_close_pos is not None:
+                        # found a close tag
+                        depth -= 1
+                        scan_pos = next_close_pos + len(close_tag)
+                        if depth == 0:
+                            # complete block found from start_pos to scan_pos
+                            end_pos = scan_pos
+                            full_tool = buf[start_pos:end_pos]
+                            outputs.append(("tool", full_tool))
+                            # cut buffer after end_pos
+                            buf = buf[end_pos:]
+                            # restart outer while loop from beginning of new buffer
+                            break
+                        # else keep scanning
+                    else:
+                        # no close tag found yet — incomplete block; keep from start_pos onward in buffer
+                        # keep whole tail and wait for more chunks
+                        buf = buf[start_pos:]
+                        found_complete = False
+                        break
+
+                # if we found a complete tool block, continue processing the new (shorter) buf
+                if 'end_pos' in locals():
+                    # cleanup for next iteration
+                    del end_pos
+                    continue
+                else:
+                    # incomplete block situation: stop draining
+                    break
+
+            return buf, outputs
+
+        # Process stream
         for chunk in response_stream:
-            # 如果不在工具调用中，正常显示chunk
-            if not in_tool_call:
-                self.view.display_ai_message_chunk(chunk)
+            buffer += chunk
+            # drain buffer as much as possible
+            buffer, outputs = _drain_buffer(buffer)
 
-            full_response += chunk
+            # display yielded outputs in order
+            for typ, val in outputs:
+                if typ == "text":
+                    if val:
+                        self.view.display_ai_message_chunk(val)
+                        full_response += val
+                elif typ == "tool":
+                    # try to parse & execute tool block
+                    try:
+                        execution_result = self._parse_and_execute_tool(val)
+                        execution_params = val
+                        # If execution_result is a dict with __callback, queue for approval
+                        if isinstance(execution_result, dict) and "__callback" in execution_result:
+                            self.view.pending_tools.append(execution_result)
+                            tools_situations.append({
+                                "execution_params": execution_params,
+                                "execution_result": execution_result,
+                            })
+                        else:
+                            # string result: show directly
+                            tools_situations.append({
+                                "execution_params": execution_params,
+                                "execution_result": execution_result,
+                            })
+                            self.view.display_ai_message_chunk(
+                                f"【工具执行结果】{execution_result}")
+                        full_response += val
+                    except Exception as e:
+                        # parsing/execution failed — display the tool block as plain text (fail-open)
+                        self.view.display_ai_message_chunk(val)
+                        full_response += val
 
-            # 实时处理工具调用检测
-            processed_chunk, tool_detected = self._process_chunk_for_tools(
-                chunk, current_tool_buffer, in_tool_call, current_tool_tag, tool_depth
-            )
+        # After stream ends, whatever remains in buffer is either safe text or partial things that never completed.
+        # We'll attempt to safely display them following same rules.
+        if buffer:
+            # If buffer still contains a leftover that looks like a partial tool tag, we should avoid exposing raw tag fragments.
+            # We'll reuse the same logic: if buffer begins with a possible tool tag prefix, try to see if it's actual xml parseable.
+            trimmed = buffer
+            # try parse as XML - if parses as known tool, treat as tool block (best-effort)
+            try:
+                parsed = ET.fromstring(trimmed)
+                # if parsed tag is one of tool_tags and structure is fine, call parse/execution
+                if parsed.tag in tool_tags:
+                    execution_result = self._parse_and_execute_tool(trimmed)
+                    if isinstance(execution_result, dict) and "__callback" in execution_result:
+                        self.view.pending_tools.append(execution_result)
+                        tools_situations.append({
+                            "execution_params": trimmed,
+                            "execution_result": execution_result,
+                        })
+                    else:
+                        tools_situations.append({
+                            "execution_params": trimmed,
+                            "execution_result": execution_result,
+                        })
+                        self.view.display_ai_message_chunk(
+                            f"【工具执行结果】{execution_result}")
+                    full_response += trimmed
+                else:
+                    # not a recognized tool tag, display as text
+                    self.view.display_ai_message_chunk(trimmed)
+                    full_response += trimmed
+            except ET.ParseError:
+                # Could not parse: display but hide suspicious partial tag tails.
+                # For maximum safety, if buffer contains a '<' that could be prefix of tool tag, strip it or escape it.
+                safe_to_display = trimmed
+                # find any '<' followed by a prefix of a tool tag—escape them
 
-            # 更新工具调用状态
-            current_tool_buffer = processed_chunk.get('buffer', '')
-            in_tool_call = processed_chunk.get('in_tool_call', False)
-            current_tool_tag = processed_chunk.get('current_tool_tag', '')
-            tool_depth = processed_chunk.get('tool_depth', 0)
-
-            # 如果检测到完整的工具调用并执行完成
-            # 这时候让 view 出现一个 tools 的调用工具列表(注意, 这里可能有多个, for循环中逐步补充)
-
-            if tool_detected and 'execution_result' in processed_chunk:
-                """
-                这里的 tool_exec_hook 是一个从流中解析出的tool调用字典，包含回调函数和参数
-                tool_exec_hook = {
-                    "__callback": callback_function,
-                    "__name": name,
-                    "desc": xxx
-                }
-                """
-                tool_exec_hook = processed_chunk['execution_result']
-                execution_params = processed_chunk.get('execution_params', '')
-                # 如果执行结果是一个字典（包含回调函数），则添加到待批准列表
-                if isinstance(tool_exec_hook, dict) and "__callback" in tool_exec_hook:
-                    # 这里向view添加待批准的工具
-                    self.view.pending_tools.append(tool_exec_hook)
-                    tools_situations.append({
-                        "execution_params": execution_params,
-                        "execution_result": tool_exec_hook,
-                    })
-                    # self.view.display_ai_message_chunk(
-                    #     f"\n[Tool detected: {execution_result.get('desc', 'Unknown tool')}]")
-                # 如果是字符串结果，直接显示
-                elif isinstance(tool_exec_hook, str):
-                    tools_situations.append({
-                        "execution_params": execution_params,
-                        "execution_result": tool_exec_hook,
-                    })
-                    self.view.display_ai_message_chunk(
-                        f"【工具执行结果】{tool_exec_hook}")
+                def _escape_possible_tool_prefix(m):
+                    inner = m.group(0)  # e.g. "<to"
+                    return inner.replace("<", "&lt;")
+                # Use regex to find '<' followed by letters and check if letters prefix any tool_tags
+                safe_to_display = re.sub(
+                    r"<([a-zA-Z]{1," + str(max_tool_tag_len) + r"})",
+                    lambda m: ("&lt;" + m.group(1)) if any(t.startswith(m.group(1))
+                                                           for t in tool_tags) else m.group(0),
+                    safe_to_display
+                )
+                self.view.display_ai_message_chunk(safe_to_display)
+                full_response += safe_to_display
 
         self.view.display_newline()
-
-        # 处理可能残留的不完整工具调用
-        if in_tool_call and current_tool_buffer:
-            # 不完整的工具调用，按普通文本处理
-            self.view.display_ai_message_chunk(current_tool_buffer)
-            full_response = full_response.replace(
-                current_tool_buffer, '') + current_tool_buffer
 
         # Add AI response to conversation history
         conversation_history.append({
@@ -240,93 +389,6 @@ class LLMProxy:
         }
 
         return result
-
-    def _process_chunk_for_tools(self, chunk: str, current_buffer: str, in_tool_call: bool,
-                                 current_tool_tag: str, tool_depth: int) -> tuple:
-        """
-        实时处理chunk，检测和解析工具调用。
-
-        Args:
-            chunk: 当前chunk内容
-            current_buffer: 当前工具调用缓冲区
-            in_tool_call: 是否正在处理工具调用
-            current_tool_tag: 当前工具标签名
-            tool_depth: XML标签深度
-
-        Returns:
-            tuple: (状态字典, 是否检测到完整工具调用)
-        """
-        buffer = current_buffer + chunk
-        tool_detected = False
-        execution_result = None
-        execution_params = None
-
-        # 定义支持的工具标签
-        tool_tags = [
-            'execute_command', 'insert_content', 'list_files', 'read_file',
-            'search_and_replace', 'search_files', 'write_to_file'
-        ]
-
-        if not in_tool_call:
-            # 检测是否开始工具调用
-            for tool_tag in tool_tags:
-                start_tag = f"<{tool_tag}>"
-                if start_tag in buffer:
-                    in_tool_call = True
-                    current_tool_tag = tool_tag
-                    # 找到开始标签的位置
-                    start_pos = buffer.find(start_tag)
-                    # 将开始标签之前的内容作为普通文本显示
-                    if start_pos > 0:
-                        normal_text = buffer[:start_pos]
-                        self.view.display_ai_message_chunk(normal_text)
-                        buffer = buffer[start_pos:]
-                    break
-
-        if in_tool_call:
-            # 更新标签深度
-            open_tag = f"<{current_tool_tag}>"
-            close_tag = f"</{current_tool_tag}>"
-
-            # 计算深度（只计算新 chunk 中的标签数量，而不是整个 buffer）
-            tool_depth += chunk.count(open_tag)
-            tool_depth -= chunk.count(close_tag)
-
-            # 检查是否找到完整的工具调用（深度为0表示标签闭合）
-            if tool_depth == 0 and close_tag in buffer:
-                # 提取完整的工具调用
-                end_pos = buffer.find(close_tag) + len(close_tag)
-                full_tool_call = buffer[:end_pos]
-
-                try:
-                    # 尝试解析和执行工具调用
-                    execution_result = self._parse_and_execute_tool(
-                        full_tool_call)
-                    execution_params = full_tool_call
-                    tool_detected = True
-
-                    # 从缓冲区移除已处理的工具调用
-                    buffer = buffer[end_pos:]
-                    in_tool_call = False
-                    current_tool_tag = ""
-                    tool_depth = 0  # 重置深度计数器
-
-                except Exception as e:
-                    # 解析失败，将内容作为普通文本处理
-                    self.view.display_ai_message_chunk(full_tool_call)
-                    buffer = buffer[end_pos:]
-                    in_tool_call = False
-                    current_tool_tag = ""
-                    tool_depth = 0  # 重置深度计数器
-
-        return {
-            'buffer': buffer,
-            'in_tool_call': in_tool_call,
-            'current_tool_tag': current_tool_tag,
-            'tool_depth': tool_depth,
-            'execution_result': execution_result,
-            'execution_params': execution_params
-        }, tool_detected
 
     def _parse_and_execute_tool(self, tool_xml: str) -> str:
         """
