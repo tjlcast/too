@@ -34,12 +34,12 @@ def run():
     # Multiple parallel tasks
     print("3. Multiple parallel tasks:")
 
-    def task_1():
-        for i in pb1(range(100)):
+    def task_1(progress_iterator):
+        for i in progress_iterator:
             time.sleep(0.02)
 
-    def task_2():
-        for i in pb2(range(150)):
+    def task_2(progress_iterator):
+        for i in progress_iterator:
             time.sleep(0.01)
 
     with ProgressBar() as pb:
@@ -47,8 +47,8 @@ def run():
         pb2 = pb(range(150), label='Task 2')
 
         # Run both tasks in parallel
-        t1 = threading.Thread(target=task_1)
-        t2 = threading.Thread(target=task_2)
+        t1 = threading.Thread(target=task_1, args=(pb1,))
+        t2 = threading.Thread(target=task_2, args=(pb2,))
 
         t1.start()
         t2.start()
@@ -65,7 +65,7 @@ def run():
         return HTML('<b>Processing...</b>')
 
     with ProgressBar(title=get_title) as pb:
-        for i in pb(range(80), item_formatter=lambda x: f'Item {x}'):
+        for i in pb(range(80)):
             time.sleep(0.05)
 
     print("\nDone!\n")
