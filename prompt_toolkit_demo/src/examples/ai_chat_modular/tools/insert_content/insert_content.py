@@ -98,10 +98,10 @@ def _insert_content(args: InsertContentArgs, basePath: str) -> Dict[str, Any]:
             # Convert line number to 0-based index
             line_index = int(line) - 1
 
-            # Handle appending to end of file (line 0)
+            # Handle appending to end of file, should start at new line  (line 0)
             if int(line) == 0:
-                lines.append(content + '\n')
-                inserted_lines = [content + '\n']
+                lines.append('\n' + content + '\n')
+                inserted_lines = ['\n' + content + '\n']
             # Handle inserting at specific line
             elif 0 <= line_index <= len(lines):
                 # Split content into lines and add to file

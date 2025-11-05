@@ -81,7 +81,7 @@ def parse_insert_content_xml(xml_string: str) -> InsertContentArgs:
         if line_element is not None and line_element.text:
             line = line_element.text.strip()
         if content_element is not None and content_element.text:
-            content = content_element.text.strip()
+            content = content_element.text
 
         return InsertContentArgs(path=path, line=line, content=content)
 
@@ -102,5 +102,97 @@ if __name__ == "__main__":
     <line>1</line>
     <content>This is a test line</content>
     </insert_content>
+    """
+    # print(run(xml_example, current_working_directory))
+    
+    xml_example = """
+<insert_content>
+<path>test.json</path>
+<line>0</line>
+<content>
+
+## search_and_replace 工具使用说明
+
+`search_and_replace` 工具用于在文件中查找并替换特定的文本字符串或正则表达式模式。这是一个强大的工具，可以快速批量修改文件内容。
+
+### 基本语法
+
+```xml
+<search_and_replace>
+<path>文件路径</path>
+<search>要查找的文本</search>
+<replace>替换为的文本</replace>
+</search_and_replace>
+```
+
+### 可选参数
+
+- `use_regex`: 设置为 "true" 时，将 `search` 参数视为正则表达式模式
+- `ignore_case`: 设置为 "true" 时，忽略大小写匹配
+- `start_line`: 限制替换的起始行号
+- `end_line`: 限制替换的结束行号
+
+### 使用示例
+
+#### 示例1：简单文本替换
+将文件中的所有 "旧文本" 替换为 "新文本"：
+
+```xml
+<search_and_replace>
+<path>example.txt</path>
+<search>旧文本</search>
+<replace>新文本</replace>
+</search_and_replace>
+```
+
+#### 示例2：使用正则表达式
+使用正则表达式替换所有数字：
+
+```xml
+<search_and_replace>
+<path>example.txt</path>
+<search>\d+</search>
+<replace>NUM</replace>
+<use_regex>true</use_regex>
+</search_and_replace>
+```
+
+#### 示例3：忽略大小写
+忽略大小写替换所有 "hello" 变体：
+
+```xml
+<search_and_replace>
+<path>example.txt</path>
+<search>hello</search>
+<replace>Hi</replace>
+<ignore_case>true</ignore_case>
+</search_and_replace>
+```
+
+#### 示例4：限制行范围
+只在第10-20行之间进行替换：
+
+```xml
+<search_and_replace>
+<path>example.txt</path>
+<search>oldText</search>
+<replace>newText</replace>
+<start_line>10</start_line>
+<end_line>20</end_line>
+</search_and_replace>
+```
+
+### 注意事项
+
+1. 使用正则表达式时，确保模式正确
+2. 替换前建议备份重要文件
+3. 可以同时使用多个可选参数
+4. 工具会显示替换前后的差异预览
+
+### 实际演示
+
+下面将演示一个实际的 `search_and_replace` 操作：
+</content>
+</insert_content>
     """
     print(run(xml_example, current_working_directory))
