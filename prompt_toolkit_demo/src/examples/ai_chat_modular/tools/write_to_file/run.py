@@ -66,77 +66,48 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
         WriteToFileArgs with the parsed args structure
     """
     try:
-        # Check if this is the simple format (no args/file wrappers)
-        root = ET.fromstring(xml_string)
+        # 用特殊方法处理包含XML标签的文本内容
+        # 首先将content标签内容临时替换为占位符
+        import re
 
-        # If root tag is 'write_to_file', parse in the simple format
-        # 1 for  <write_to_file><args>
-        # 2 for  <write_to_file><args><file>
-        xml_contain_file = 1
+        # 提取所有content内容，使用非贪婪模式
+        content_matches = re.findall(
+            r'<content>(.*?)</content>', xml_string, re.DOTALL)
+        content_texts = []
+        for match in content_matches:
+            content_texts.append(match)
 
-        if xml_contain_file == 1:
-            path_element = root.find('path')
-            content_element = root.find('content')
-            line_count_element = root.find('line_count')
+        # 将原始XML中的content内容替换为占位符，使用非贪婪模式
+        placeholder_xml = re.sub(
+            r'<content>.*?</content>', '<content>__CONTENT_PLACEHOLDER__</content>', xml_string, flags=re.DOTALL)
 
-            file_info = {"path": "", "content": "", "line_count": 0}
+        # 解析替换后的XML
+        root = ET.fromstring(placeholder_xml)
 
-            if path_element is not None and path_element.text:
-                file_info["path"] = path_element.text.strip()
+        content_index = 0
+        path_element = root.find('path')
+        content_element = root.find('content')
+        line_count_element = root.find('line_count')
 
-            if content_element is not None:
-                # Handle CDATA or plain text content
-                file_info["content"] = content_element.text or ""
+        file_info = {"path": "", "content": "", "line_count": 0}
 
-            if line_count_element is not None and line_count_element.text:
-                try:
-                    file_info["line_count"] = int(
-                        line_count_element.text.strip())
-                except ValueError:
-                    file_info["line_count"] = 0
+        if path_element is not None and path_element.text:
+            file_info["path"] = path_element.text.strip()
 
-            return WriteToFileArgs(file=[file_info])
-        else:
-            # Handle the args/file format
-            write_to_file_element = root if root.tag == 'write_to_file' else root.find(
-                'write_to_file')
+        if content_element is not None and content_element.text:
+            # 使用之前提取的完整content内容
+            if content_index < len(content_texts):
+                file_info["content"] = content_texts[content_index]
+                content_index += 1
 
-            if write_to_file_element is None:
-                return {"error": "Invalid XML format"}
+        if line_count_element is not None and line_count_element.text:
+            try:
+                file_info["line_count"] = int(
+                    line_count_element.text.strip())
+            except ValueError:
+                file_info["line_count"] = 0
 
-            # Parse args
-            root = write_to_file_element.find('args')
-            if root is None:
-                return {"error": "Missing <args> element"}
-
-            # Parse files
-            file_elements = root.findall('file')
-            files = []
-
-            for file_element in file_elements:
-                path_element = file_element.find('path')
-                content_element = file_element.find('content')
-                line_count_element = file_element.find('line_count')
-
-                file_info = {"path": "", "content": "", "line_count": 0}
-
-                if path_element is not None and path_element.text:
-                    file_info["path"] = path_element.text.strip()
-
-                if content_element is not None:
-                    # Handle CDATA or plain text content
-                    file_info["content"] = content_element.text or ""
-
-                if line_count_element is not None and line_count_element.text:
-                    try:
-                        file_info["line_count"] = int(
-                            line_count_element.text.strip())
-                    except ValueError:
-                        file_info["line_count"] = 0
-
-                files.append(file_info)
-
-            return WriteToFileArgs(file=files)
+        return WriteToFileArgs(file=[file_info])
 
     except ET.ParseError as e:
         raise ValueError(f"XML parsing error: {str(e)}")
@@ -146,26 +117,27 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
 
 if __name__ == "__main__":
     xml_string = """
-    <write_to_file>
-        <path>test.json</path>
-        <content>
-        {
-        "apiEndpoint": "https://api.example.com",
-        "theme": {
-            "primaryColor": "#007bff",
-            "secondaryColor": "#6c757d",
-            "fontFamily": "Arial, sans-serif"
-        },
-        "features": {
-            "darkMode": true,
-            "notifications": true,
-            "analytics": false
-        },
-        "version": "1.0.0"
-        }
-        </content>
-        <line_count>14</line_count>
-    </write_to_file>
+<write_to_file>
+<path>test.json</path>
+<content>
+<apple></apple><adsfasf>
+{
+"apiEndpoint": "https://api.example.com",
+"theme": {
+    "primaryColor": "#007bff",
+    "secondaryColor": "#6c757d",
+    "fontFamily": "Arial, sans-serif"
+},
+"features": {
+    "darkMode": true,
+    "notifications": true,
+    "analytics": false
+},
+"version": "1.0.0"
+}
+</content>
+<line_count>17</line_count>
+</write_to_file>
     """
 
     print(run(xml_string))
