@@ -7,7 +7,7 @@ Description: Request to read the contents of one or more files. The tool outputs
 
 Parameters:
 - args: Contains one or more file elements, where each file contains:
-  - path: (required) File path (relative to workspace directory c:\Users\phx10\code\cg-manager)
+  - path: (required) File path (relative to workspace directory C:\Users\phx10\code\cg-manager)
   
 
 Usage:
