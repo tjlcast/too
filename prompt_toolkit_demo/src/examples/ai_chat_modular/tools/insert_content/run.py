@@ -1,8 +1,6 @@
 from typing import Dict, Any
-
-
 import xml.etree.ElementTree as ET
-
+from xml.etree.ElementTree import XMLParser
 from .insert_content import InsertContentArgs, insert_content
 
 
@@ -59,20 +57,30 @@ def parse_insert_content_xml(xml_string: str) -> InsertContentArgs:
         InsertContentArgs with the parsed args structure
     """
     try:
-        # Wrap the XML in a root element if it doesn't have one
-        if not xml_string.strip().startswith('<insert_content>'):
-            xml_string = f"<root>{xml_string}</root>"
-            root = ET.fromstring(xml_string)
-            insert_content_element = root.find('insert_content')
-        else:
-            insert_content_element = ET.fromstring(xml_string)
-
+        # 用特殊方法处理包含XML标签的文本内容
+        # 首先将content标签内容临时替换为占位符
+        import re
+        
+        # 提取content内容，使用非贪婪模式
+        content_match = re.search(r'<content>(.*?)</content>', xml_string, re.DOTALL)
+        content_text = ""
+        if content_match:
+            content_text = content_match.group(1)
+            
+        # 将原始XML中的content内容替换为占位符，使用非贪婪模式
+        placeholder_xml = re.sub(r'<content>.*?</content>', '<content>__CONTENT_PLACEHOLDER__</content>', xml_string, flags=re.DOTALL)
+        
+        # 解析替换后的XML
+        root = ET.fromstring(placeholder_xml)
+        insert_content_element = root if root.tag == 'insert_content' else root.find('insert_content')
+        
         if insert_content_element is None:
             raise ValueError("Invalid XML format")
 
         path_element = insert_content_element.find('path')
         line_element = insert_content_element.find('line')
         content_element = insert_content_element.find('content')
+        
         path = ""
         line = ""
         content = ""
@@ -81,7 +89,8 @@ def parse_insert_content_xml(xml_string: str) -> InsertContentArgs:
         if line_element is not None and line_element.text:
             line = line_element.text.strip()
         if content_element is not None and content_element.text:
-            content = content_element.text
+            # 使用之前提取的完整content内容
+            content = content_text
 
         return InsertContentArgs(path=path, line=line, content=content)
 
