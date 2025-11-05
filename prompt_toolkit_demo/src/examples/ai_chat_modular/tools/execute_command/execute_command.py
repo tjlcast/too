@@ -123,12 +123,10 @@ if __name__ == "__main__":
     # Test XML parsing
     xml_example = """
     <execute_command>
-    <args>
-      <command>echo Hello World</command>
-    </args>
+    <command>echo Hello World</command>
     </execute_command>
     """
-    
+
     from .run import parse_execute_command_xml
     parsed_args = parse_execute_command_xml(xml_example)
     result = _execute_command(parsed_args, current_working_directory)
@@ -136,10 +134,8 @@ if __name__ == "__main__":
 
     xml_example = """
     <execute_command>
-    <args>
-      <command>echo Hello World</command>
-      <cwd>.</cwd>
-    </args>
+    <command>echo Hello World</command>
+    <cwd>.</cwd>
     </execute_command>
     """
     parsed_args = parse_execute_command_xml(xml_example)

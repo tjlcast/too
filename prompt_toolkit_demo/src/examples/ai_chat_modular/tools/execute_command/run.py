@@ -65,18 +65,13 @@ def parse_execute_command_xml(xml_string: str) -> ExecuteCommandArgs:
         if execute_command_element is None:
             return {"error": "Invalid XML format"}
 
-        # Parse args
-        args_element = execute_command_element.find('args')
-        if args_element is None:
-            return {"error": "Missing <args> element"}
-
         # Parse command
-        command_element = args_element.find('command')
+        command_element = execute_command_element.find('command')
         command = command_element.text.strip(
         ) if command_element is not None and command_element.text else None
 
         # Parse cwd (optional)
-        cwd_element = args_element.find('cwd')
+        cwd_element = execute_command_element.find('cwd')
         cwd = cwd_element.text.strip() if cwd_element is not None and cwd_element.text else None
 
         return ExecuteCommandArgs(
@@ -97,36 +92,28 @@ if __name__ == "__main__":
 
     xml_example = """
     <execute_command>
-    <args>
-      <command>echo Hello</command>
-    </args>
+    <command>echo Hello</command>
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
 
     xml_example = """
     <execute_command>
-    <args>
-      <command>ls .</command>
-    </args>
+    <command>ls .</command>
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
 
     xml_example = """
     <execute_command>
-    <args>
-      <command>dir .</command>
-    </args>
+    <command>dir .</command>
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
 
     xml_example = """
     <execute_command>
-    <args>
-      <command>pwd</command>
-    </args>
+    <command>pwd</command>
     </execute_command>
     """
     print(run(xml_example, current_working_directory))
