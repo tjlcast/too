@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 import xml.etree.ElementTree as ET
 
-from .insert_content import InsertContentArgs, Insertion, insert_content
+from .insert_content import InsertContentArgs, insert_content
 
 
 def run(xml_string: str, basePath: str = None) -> str:
@@ -70,36 +70,20 @@ def parse_insert_content_xml(xml_string: str) -> InsertContentArgs:
         if insert_content_element is None:
             raise ValueError("Invalid XML format")
 
-        # Parse args
-        args_element = insert_content_element.find('args')
-        if args_element is None:
-            raise ValueError("Missing <args> element")
+        path_element = insert_content_element.find('path')
+        line_element = insert_content_element.find('line')
+        content_element = insert_content_element.find('content')
+        path = ""
+        line = ""
+        content = ""
+        if path_element is not None and path_element.text:
+            path = path_element.text.strip()
+        if line_element is not None and line_element.text:
+            line = line_element.text.strip()
+        if content_element is not None and content_element.text:
+            content = content_element.text.strip()
 
-        # Parse insertions
-        insertion_elements = args_element.findall('insertion')
-        insertions = []
-
-        for insertion_element in insertion_elements:
-            path_element = insertion_element.find('path')
-            line_element = insertion_element.find('line')
-            content_element = insertion_element.find('content')
-
-            path = ""
-            line = ""
-            content = ""
-
-            if path_element is not None and path_element.text:
-                path = path_element.text.strip()
-
-            if line_element is not None and line_element.text:
-                line = line_element.text.strip()
-
-            if content_element is not None and content_element.text:
-                content = content_element.text.strip()
-
-            insertions.append(Insertion(path=path, line=line, content=content))
-
-        return InsertContentArgs(insertion=insertions)
+        return InsertContentArgs(path=path, line=line, content=content)
 
     except ET.ParseError as e:
         raise ValueError(f"XML parsing error: {str(e)}")
@@ -114,13 +98,9 @@ if __name__ == "__main__":
 
     xml_example = """
     <insert_content>
-    <args>
-      <insertion>
-        <path>test.json</path>
-        <line>1</line>
-        <content>This is a test line</content>
-      </insertion>
-    </args>
+    <path>test.json</path>
+    <line>1</line>
+    <content>This is a test line</content>
     </insert_content>
     """
     print(run(xml_example, current_working_directory))
