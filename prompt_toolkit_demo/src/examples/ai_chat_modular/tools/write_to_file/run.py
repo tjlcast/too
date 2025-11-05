@@ -72,13 +72,12 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
         # If root tag is 'write_to_file', parse in the simple format
         # 1 for  <write_to_file><args>
         # 2 for  <write_to_file><args><file>
-        xml_contain_file = 2
+        xml_contain_file = 1
 
         if xml_contain_file == 1:
-            args_element = root.find("args")
-            path_element = args_element.find('path')
-            content_element = args_element.find('content')
-            line_count_element = args_element.find('line_count')
+            path_element = root.find('path')
+            content_element = root.find('content')
+            line_count_element = root.find('line_count')
 
             file_info = {"path": "", "content": "", "line_count": 0}
 
@@ -106,12 +105,12 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
                 return {"error": "Invalid XML format"}
 
             # Parse args
-            args_element = write_to_file_element.find('args')
-            if args_element is None:
+            root = write_to_file_element.find('args')
+            if root is None:
                 return {"error": "Missing <args> element"}
 
             # Parse files
-            file_elements = args_element.findall('file')
+            file_elements = root.findall('file')
             files = []
 
             for file_element in file_elements:
@@ -148,8 +147,6 @@ def parse_write_file_xml(xml_string: str) -> WriteToFileArgs:
 if __name__ == "__main__":
     xml_string = """
     <write_to_file>
-    <args>
-    <file>
         <path>test.json</path>
         <content>
         {
@@ -168,8 +165,6 @@ if __name__ == "__main__":
         }
         </content>
         <line_count>14</line_count>
-    </file>
-    </args>
     </write_to_file>
     """
 
