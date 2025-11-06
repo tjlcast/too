@@ -203,15 +203,19 @@ class ViewInterface:
         """
         print_formatted_text(HTML(f'<ansiblue>AI:</ansiblue> {message}'))
 
-    def get_user_input(self) -> str:
+    def get_user_input(self, default_input: str = "") -> str:
         """
         Get input from the user with command completion support.
+
+        Args:
+            default_input: Default text to pre-fill the input field with
 
         Returns:
             User input as a string
         """
         user_input = prompt(
             HTML('<ansigreen>You:</ansigreen> '),
+            default=default_input,
             multiline=True,
             key_bindings=self.bindings,
             style=self.style,

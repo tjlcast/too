@@ -39,7 +39,11 @@ class TooTask:
                         self.conversation_history)
 
                     # Get user input
-                    user_message = self.view_interface.get_user_input()
+                    if self.view_interface.pending_tools and len(self.view_interface.pending_tools) > 0:
+                        user_message = self.view_interface.get_user_input(
+                            default_input="$approve")
+                    else:
+                        user_message = self.view_interface.get_user_input()
 
                     # Check if it's a view-level command (like $pwd, $cd)
                     if user_message.startswith('$'):
