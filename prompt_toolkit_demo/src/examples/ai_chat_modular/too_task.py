@@ -48,6 +48,7 @@ class TooTask:
                         if command_result['handled']:
                             # 如果是批准工具的命令，执行工具
                             if 'approved_tools' in command_result:
+                                # 如果是 approved_tools, 则在前面的 process_command 方法中添加 approved_tools 到result了
                                 self._execute_approved_tools(
                                     command_result['approved_tools'])
                                 finish_task_executions = command_result['approved_tools']
@@ -123,9 +124,16 @@ class TooTask:
             if "__callback" in tool:
                 try:
                     result = tool["__callback"]()
+                    """
+                    这里的tool结构如下:
+                    'desc' ='读取文件 README.md 的内容 [模拟执行完成]'
+                    '__name' = 'read_file'
+                    '__callback' = <function LLMProxy._execute_read_file_tool.<locals>.__run_read_file at 0x000002BBE6C18670>
+                    '__execution_result' = '[read
+                    """
                     tool["__execution_result"] = result
                     self.view_interface.display_system_message(
-                        f"Tool execution result: {result[:32]}", 'info')
+                        f"✅ [{tool['__name']}] Tool execution result: {result[:32]}", 'info')
                 except Exception as e:
                     self.view_interface.display_system_message(
                         f"Error executing tool: {str(e)}", 'error')
