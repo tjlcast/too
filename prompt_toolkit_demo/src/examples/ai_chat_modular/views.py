@@ -164,6 +164,14 @@ class ViewInterface:
         print_formatted_text(
             HTML('<ansiblue>AI:</ansiblue> '), end='', flush=True)
 
+    def display_attempt_completion(self, chunk: str):
+        if chunk == '' or chunk == '\n':
+            print_formatted_text(chunk, end='', flush=True)
+            return
+        """Display an attempt completion chunk."""
+        print_formatted_text(
+            HTML(f'<ansigreen>{chunk}</ansigreen>'), end='', flush=True)
+
     def display_ai_message_chunk(self, chunk: str):
         """
         Display a chunk of AI response.

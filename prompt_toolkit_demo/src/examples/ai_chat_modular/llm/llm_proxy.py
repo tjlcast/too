@@ -25,6 +25,56 @@ if TYPE_CHECKING:
     from ..views import ViewInterface
 
 
+def _get_potential_closing_tag_prefixes(tag_name: str) -> List[str]:
+    """
+    获取可能的结束标签前缀列表
+
+    Args:
+        tag_name: 标签名，如 "result"
+
+    Returns:
+        所有可能的结束标签前缀列表
+    """
+    closing_tag = f"</{tag_name}>"
+    prefixes = []
+    for i in range(1, len(closing_tag)):
+        prefixes.append(closing_tag[:i])
+    return prefixes
+
+
+def _should_display_content(buffer: str, content_start: int, content_end: int, chunk: str) -> bool:
+    """
+    判断是否应该显示内容
+
+    Args:
+        buffer: 当前缓冲区
+        content_start: 内容开始位置
+        content_end: 内容结束位置
+        chunk: 当前块
+
+    Returns:
+        是否应该显示内容
+    """
+    # 检查chunk是否以任何结束标签前缀结尾
+    result_prefixes = _get_potential_closing_tag_prefixes("result")
+
+    # 检查buffer是否以结束标签前缀结尾
+    for prefix in result_prefixes:
+        if buffer.endswith(prefix):
+            return False
+
+    # 检查buffer末尾是否以结束标签前缀结尾
+    buffer_suffix = buffer[len(buffer) - len(chunk)
+                               :] if len(buffer) >= len(chunk) else buffer
+    for prefix in result_prefixes:
+        if buffer_suffix.endswith(prefix) and not buffer.endswith(f"</{prefix[2:]}" if prefix.startswith("</") else f"</{prefix}"):
+            # 只有在buffer确实不包含完整结束标签时才限制输出
+            if not buffer.endswith(f"</result>"):
+                return False
+
+    return True
+
+
 class LLMProxy:
     def __init__(self, view_interface: 'ViewInterface', llm_provider: 'LLMProvider'):
         """
@@ -167,7 +217,7 @@ class LLMProxy:
         buffer = ""
         tool_tags = [
             'execute_command', 'insert_content', 'list_files', 'read_file',
-            'search_and_replace', 'search_files', 'write_to_file'
+            'search_and_replace', 'search_files', 'write_to_file', 'attempt_completion'
         ]
         max_tool_tag_len = max(len(t) for t in tool_tags)
 
@@ -292,6 +342,67 @@ class LLMProxy:
             # drain buffer as much as possible
             buffer, outputs = _drain_buffer(buffer)
 
+            # 检查是否有<attempt_completion>标签内容正在构建
+            # 使用游标方式判断chunk是否在<attempt_completion><result>标签内容中
+            if "<attempt_completion>" in buffer and "</result>" not in buffer:
+                # 使用游标跟踪标签位置
+                cursor = 0
+                while cursor < len(buffer):
+                    # 查找<attempt_completion>标签起始位置
+                    attempt_start = buffer.find("<attempt_completion>", cursor)
+                    if attempt_start == -1:
+                        break
+
+                    # 查找</attempt_completion>标签结束位置
+                    attempt_end = buffer.find(
+                        "</attempt_completion>", attempt_start)
+                    if attempt_end == -1:
+                        attempt_end = len(buffer)
+
+                    # 查找<result>标签起始位置
+                    result_start_tag = buffer.find("<result>", attempt_start)
+                    if result_start_tag != -1 and result_start_tag < attempt_end:
+                        # 计算result内容起始位置
+                        result_content_start = result_start_tag + \
+                            len("<result>")
+
+                        # 查找</result>标签结束位置
+                        result_end_tag = buffer.find(
+                            "</result>", result_content_start)
+                        if result_end_tag != -1 and result_end_tag < attempt_end:
+                            # 确定result内容结束位置
+                            result_content_end = result_end_tag
+                        else:
+                            # 如果没有找到结束标签，则内容一直到attempt_completion结束或缓冲区末尾
+                            result_content_end = attempt_end
+
+                        # 检查chunk是否在result内容范围内
+                        chunk_start_pos = len(buffer) - len(chunk)
+
+                        # 判断chunk是否在result内容区间内
+                        if (chunk_start_pos >= result_content_start and
+                                chunk_start_pos < result_content_end):
+                            # 检查是否应该显示内容（避免显示标签片段）
+                            if _should_display_content(buffer, result_content_start, result_content_end, chunk):
+                                self.view.display_attempt_completion(chunk)
+                        elif (result_content_start >= chunk_start_pos and
+                              result_content_start < len(buffer)):
+                            # 处理边界情况，chunk包含了result开始的一部分
+                            overlap_start = max(
+                                result_content_start, chunk_start_pos)
+                            if overlap_start < len(buffer):
+                                overlapping_part = buffer[overlap_start:len(
+                                    buffer)]
+                                if overlapping_part and chunk.endswith(overlapping_part):
+                                    # 检查是否应该显示内容（避免显示标签片段）
+                                    if _should_display_content(buffer, result_content_start, result_content_end, overlapping_part):
+                                        self.view.display_attempt_completion(
+                                            overlapping_part)
+
+                    # 移动游标到下一个位置
+                    cursor = attempt_end + len("</attempt_completion>") if buffer.find(
+                        "</attempt_completion>", attempt_end) != -1 else len(buffer)
+
             # display yielded outputs in order
             for typ, val in outputs:
                 if typ == "text":
@@ -301,7 +412,9 @@ class LLMProxy:
                 elif typ == "tool":
                     # try to parse & execute tool block
                     try:
+                        full_response += val
                         execution_result = self._parse_and_execute_tool(val)
+
                         execution_params = val
                         # If execution_result is a dict with __callback, queue for approval
                         if isinstance(execution_result, dict) and "__callback" in execution_result:
@@ -318,7 +431,6 @@ class LLMProxy:
                             })
                             self.view.display_ai_message_chunk(
                                 f"【工具执行结果】{execution_result}")
-                        full_response += val
                     except Exception as e:
                         # parsing/execution failed — display the tool block as plain text (fail-open)
                         self.view.display_ai_message_chunk(val)
@@ -419,6 +531,8 @@ class LLMProxy:
                 return self._execute_search_files_tool(root, tool_name, tool_xml)
             elif tool_name == 'write_to_file':
                 return self._execute_write_file_tool(root, tool_name, tool_xml)
+            elif tool_name == 'attempt_completion':
+                return self._execute_attempt_completion_tool(root, tool_name, tool_xml)
             else:
                 return f"未知工具: {tool_name}"
 
@@ -556,6 +670,23 @@ class LLMProxy:
                 "desc": f"写入文件 {path}，内容 {line_count} 行 [模拟执行完成]",
                 "__name": tool_name,
                 "__callback": __run_write_to_file,
+            }
+        return "写入文件参数缺失"
+
+    def _execute_attempt_completion_tool(self, root: ET.Element, tool_name: str, tool_xml: str) -> str:
+        ac_elem = root.find('.//attempt_completion')
+        result_elem = root.find('.//result')
+
+        if result_elem is not None and result_elem is not None:
+            result = result_elem.text or ""
+
+            def __run_attempt_completion_tool():
+                return result
+
+            return {
+                "desc": f"尝试结束任务",
+                "__name": tool_name,
+                "__callback": __run_attempt_completion_tool,
             }
         return "写入文件参数缺失"
 
