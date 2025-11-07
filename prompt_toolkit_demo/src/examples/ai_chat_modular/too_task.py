@@ -31,65 +31,73 @@ class TooTask:
         try:
             while True:
                 try:
-                    finish_task_executions = []
-
                     # Display conversation context
                     # Include Pending Tools Execution if any
                     self.view_interface.display_conversation_context(
                         self.conversation_history)
-
-                    # Get user input
-                    if self.view_interface.pending_tools and len(self.view_interface.pending_tools) > 0:
-                        user_message = self.view_interface.get_user_input(
-                            default_input="$approve")
-                    else:
-                        user_message = self.view_interface.get_user_input()
-
-                    # Check if it's a view-level command (like $pwd, $cd)
-                    if user_message.startswith('$'):
-                        command_result = self.view_interface.process_command(
-                            user_message)
-                        if command_result['handled']:
-                            # 如果是批准工具的命令，执行工具
-                            if 'approved_tools' in command_result:
-                                # 如果是 approved_tools, 则在前面的 process_command 方法中添加 approved_tools 到result了
-                                self._execute_approved_tools(
-                                    command_result['approved_tools'])
-                                finish_task_executions = command_result['approved_tools']
-                            else:
-                                continue
-
-                    # Check for exit conditions
-                    if user_message.lower() in ['quit', 'exit', 'bye'] or user_message == '$exit':
-                        self.view_interface.show_goodbye_message()
-                        break
-
-                    # Check for reset command
-                    if user_message == '$reset':
-                        self.conversation_history = []
+                    if (self.conversation_history and
+                        self.conversation_history[-1].get('role') == 'assistant' and
+                            not self.view_interface.pending_tools):
+                        # 如果conversation_history最大的一条消息的role是assistant， 同时self.view_interface.pending_tools没有工具
+                        # 则需要提示
                         self.view_interface.display_system_message(
-                            "Conversation history cleared.", 'info')
-                        continue
-
-                    if not user_message:
-                        continue
-
-                    if len(self.conversation_history) == 0:
-                        self.conversation_history.append({
-                            "role": "system",
-                            "content": get_message_message(),
-                            "timestamp": get_current_timestamp()
-                        })
-
-                    # Check if we have tool execution results to process
-                    if finish_task_executions:
-                        # Process tools input
-                        task_data = self.llm_proxy.process_tools_input(
-                            finish_task_executions, self.conversation_history)
+                            "No tools were used in the previous response. AI will retry to think.\n", 'error')
+                        task_data = self.remind_no_tools_used()
                     else:
-                        # Process user input
-                        task_data = self.llm_proxy.process_user_input(
-                            user_message, self.conversation_history)
+                        finish_task_executions = []
+
+                        # Get user input
+                        if self.view_interface.pending_tools and len(self.view_interface.pending_tools) > 0:
+                            user_message = self.view_interface.get_user_input(
+                                default_input="$approve")
+                        else:
+                            user_message = self.view_interface.get_user_input()
+
+                        # Check if it's a view-level command (like $pwd, $cd)
+                        if user_message.startswith('$'):
+                            command_result = self.view_interface.process_command(
+                                user_message)
+                            if command_result['handled']:
+                                # 如果是批准工具的命令，执行工具
+                                if 'approved_tools' in command_result:
+                                    # 如果是 approved_tools, 则在前面的 process_command 方法中添加 approved_tools 到result了
+                                    self._execute_approved_tools(
+                                        command_result['approved_tools'])
+                                    finish_task_executions = command_result['approved_tools']
+                                else:
+                                    continue
+
+                        # Check for exit conditions
+                        if user_message.lower() in ['quit', 'exit', 'bye'] or user_message == '$exit':
+                            self.view_interface.show_goodbye_message()
+                            break
+
+                        # Check for reset command
+                        if user_message == '$reset':
+                            self.conversation_history = []
+                            self.view_interface.display_system_message(
+                                "Conversation history cleared.", 'info')
+                            continue
+
+                        if not user_message:
+                            continue
+
+                        if len(self.conversation_history) == 0:
+                            self.conversation_history.append({
+                                "role": "system",
+                                "content": get_message_message(),
+                                "timestamp": get_current_timestamp()
+                            })
+
+                        # Check if we have tool execution results to process
+                        if finish_task_executions:
+                            # Process tools input
+                            task_data = self.llm_proxy.process_tools_input(
+                                finish_task_executions, self.conversation_history)
+                        else:
+                            # Process user input
+                            task_data = self.llm_proxy.process_user_input(
+                                user_message, self.conversation_history)
 
                     # Execute task
                     execution_result = self.llm_proxy.execute_task(
@@ -119,6 +127,39 @@ class TooTask:
 
         finally:
             self.view_interface.wait_for_enter()
+
+    def remind_no_tools_used(self) -> Dict[str, Any]:
+        tips = """
+[ERROR] You did not use a tool in your previous response! Please retry with a tool use.
+
+# Reminder: Instructions for Tool Use
+
+Tool uses are formatted using XML-style tags. The tool name itself becomes the XML tag name. Each parameter is enclosed within its own set of tags. Here's the structure:
+
+<actual_tool_name>
+<parameter1_name>value1</parameter1_name>
+<parameter2_name>value2</parameter2_name>
+...
+</actual_tool_name>
+
+For example, to use the attempt_completion tool:
+
+<attempt_completion>
+<result>
+I have completed the task...
+</result>
+</attempt_completion>
+
+Always use the actual tool name as the XML tag name for proper parsing and execution.
+
+# Next Steps
+
+If you have completed the user's task, use the attempt_completion tool. 
+If you require additional information from the user, use the ask_followup_question tool. 
+Otherwise, if you have not completed the task and do not need additional information, then proceed with the next step of the task. 
+(This is an automated message, so do not respond to it conversationally.)
+"""
+        return self.llm_proxy.process_tips_input(tips, self.conversation_history)
 
     def _execute_approved_tools(self, approved_tools: List[Dict[str, Any]]):
         """

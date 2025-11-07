@@ -133,6 +133,46 @@ class LLMProxy:
         })
 
         return result
+    
+    def process_tips_input(self, tips: str, conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
+        """
+        Process user input and determine if tools are needed.
+
+        Args:
+            user_input: The user's input message
+            conversation_history: The conversation history
+
+        Returns:
+            Dictionary with processing results
+        """
+        # For now, we'll just add the user input to the conversation history
+        # In a more complex implementation, this would analyze the input
+        # to determine if tools are needed
+
+        result = {
+            'requires_tool': False,
+            'tool_name': None,
+            'tool_args': None,
+            'user_message': tips,
+            'conversation_history': conversation_history.copy()
+        }
+
+        # Build user task entry
+        env_proxy = EnvironmentProxy()
+        details = get_environment_details(env_proxy)
+        user_message_tpl = """{{tips}}\n{{env_details}}
+        """
+        tips = replace_template_vars(
+            user_message_tpl, {"{{tips}}": tips, "{{env_details}}": details})
+
+        # Add user message to conversation history
+        result['conversation_history'].append({
+            "role": "user",
+            "content": tips,
+            "timestamp": get_current_timestamp()
+        })
+
+        return result
 
     def process_user_input(self, user_input: str, conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
         """
