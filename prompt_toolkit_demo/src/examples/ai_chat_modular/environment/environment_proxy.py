@@ -30,7 +30,7 @@ class EnvironmentProxy:
             # 定义黑名单，包含需要跳过的目录和文件
             blacklist = {
                 '.git', '__pycache__', '.vscode', 'node_modules', '.idea',
-                '.DS_Store', 'Thumbs.db',  'site-packages', '__MACOSX', '.venv'
+                '.DS_Store', 'Thumbs.db',  'site-packages', '__MACOSX', '.venv', 'target'
             }
 
             # 递归遍历所有文件和目录
@@ -71,7 +71,7 @@ class EnvironmentProxy:
             # 排序并添加到结果中
             for file_path in sorted(all_files):
                 # 添加 "./" 前缀以明确表示相对路径
-                result += f"  {file_path}\n"
+                result += f"{file_path}\n"
 
             return result
         except Exception as e:

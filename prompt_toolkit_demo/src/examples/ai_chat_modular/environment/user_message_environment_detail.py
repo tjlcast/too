@@ -23,11 +23,14 @@ $0.00
 
 
 {{environment_details_files}}
+</environment_details>
 """
 
 
-def get_environment_details(envir_proxy: EnvironmentProxy) -> str:
-    environment_details_files = envir_proxy.get_current_working_directory()
+def get_environment_details(envir_proxy: EnvironmentProxy, with_workspace: bool = True) -> str:
+    environment_details_files = ''
+    if with_workspace:
+        environment_details_files = envir_proxy.get_current_working_directory()
     system_prompt = tpl
     vars_map = {
         "{{environment_details_files}}": environment_details_files,
@@ -35,9 +38,11 @@ def get_environment_details(envir_proxy: EnvironmentProxy) -> str:
 
     # 使用简单字符串替换而不是正则表达式替换所有可能的变量占位符
     for var_placeholder, replacement_value in vars_map.items():
-        system_prompt = system_prompt.replace(var_placeholder, replacement_value)
-        
+        system_prompt = system_prompt.replace(
+            var_placeholder, replacement_value)
+
     return system_prompt
+
 
 """
 Run command: python -m src.examples.ai_chat_modular.environment.environment_detail

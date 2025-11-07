@@ -64,8 +64,7 @@ def _should_display_content(buffer: str, content_start: int, content_end: int, c
             return False
 
     # 检查buffer末尾是否以结束标签前缀结尾
-    buffer_suffix = buffer[len(buffer) - len(chunk)
-                               :] if len(buffer) >= len(chunk) else buffer
+    buffer_suffix = buffer[len(buffer) - len(chunk)                           :] if len(buffer) >= len(chunk) else buffer
     for prefix in result_prefixes:
         if buffer_suffix.endswith(prefix) and not buffer.endswith(f"</{prefix[2:]}" if prefix.startswith("</") else f"</{prefix}"):
             # 只有在buffer确实不包含完整结束标签时才限制输出
@@ -110,7 +109,8 @@ class LLMProxy:
 
         # Get environment details
         env_proxy = EnvironmentProxy()
-        environment_details = get_environment_details(env_proxy)
+        environment_details = get_environment_details(
+            env_proxy, with_workspace=False)
 
         # Create tool results message
         tool_results_content = "<tool_execution_results>\n"

@@ -23,11 +23,6 @@ def execute(args: ReadFileArgs, basePath: str = None) -> Dict[str, Any]:
 
     # 构建返回的字符串格式
     output_lines = [f"[read_file for {len(results)} files] Result:"]
-    output_lines.append(
-        "The user approved this operation and provided the following context:")
-    output_lines.append("<feedback>")
-    output_lines.append("VS Code/Untitled-2:1-5")
-    output_lines.append("</feedback>")
     output_lines.append("<files>")
 
     # 添加每个文件的内容
