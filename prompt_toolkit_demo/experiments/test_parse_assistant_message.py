@@ -1,6 +1,9 @@
 import unittest
-from parseAssistantMessage import (
+from parseAssistantMessageV2 import(
+# from parseAssistantMessage import (
     parse_assistant_message,
+)
+from assistent_message import (
     TextContent,
     ToolUse
 )
@@ -528,7 +531,51 @@ def run_all_parsers_tests():
 
     return result
 
+def run_parser_v1_tests():
+    """Run tests specifically for parseAssistantMessage (V1) implementation."""
+    print("=" * 60)
+    print("Testing parseAssistantMessage (V1 Implementation)")
+    print("=" * 60)
+    
+    # Temporarily modify the import to use V1 instead of V2
+    global parse_assistant_message
+    from parseAssistantMessage import parse_assistant_message as v1_func
+    parse_assistant_message = v1_func
+    
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestParseAssistantMessage)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    suite = unittest.TestLoader().loadTestsFromTestCase(BenchmarkTests)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    return result
+
+def run_parser_v2_tests():
+    """Run tests specifically for parseAssistantMessageV2 (V2) implementation."""
+    print("=" * 60)
+    print("Testing parseAssistantMessageV2 (V2 Implementation)")
+    print("=" * 60)
+    
+    # Ensure we're using V2 implementation
+    global parse_assistant_message
+    from parseAssistantMessageV2 import parse_assistant_message as v2_func
+    parse_assistant_message = v2_func
+    
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestParseAssistantMessage)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    suite = unittest.TestLoader().loadTestsFromTestCase(BenchmarkTests)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    return result
+
 
 if __name__ == "__main__":
-    # Run the tests
-    run_all_parsers_tests()
+    # run_all_parsers_tests()
+    # Run tests for V1 first, then V2
+    run_parser_v1_tests()
+    run_parser_v2_tests()

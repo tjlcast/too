@@ -2,32 +2,41 @@ from typing import Dict, List, Optional, Union, Any, Literal
 from dataclasses import dataclass
 from enum import Enum
 
-# Type definitions
-ToolName = str
-ToolParamName = str
+from assistent_message import AssistantMessageContent, TextContent, ToolName, ToolParamName, ToolUse
 
-class ContentType(Enum):
-    TEXT = "text"
-    TOOL_USE = "tool_use"
 
-@dataclass
-class TextContent:
-    type: str = ContentType.TEXT.value
-    content: str = ""
-    partial: bool = True
 
-@dataclass
-class ToolUse:
-    type: str = ContentType.TOOL_USE.value
-    name: ToolName = ""
-    params: Dict[ToolParamName, str] = None
-    partial: bool = True
-    
-    def __post_init__(self):
-        if self.params is None:
-            self.params = {}
+# # Type definitions
+# ToolName = str
+# ToolParamName = str
 
-AssistantMessageContent = Union[TextContent, ToolUse]
+
+# class ContentType(Enum):
+#     TEXT = "text"
+#     TOOL_USE = "tool_use"
+
+
+# @dataclass
+# class TextContent:
+#     type: str = ContentType.TEXT.value
+#     content: str = ""
+#     partial: bool = True
+
+
+# @dataclass
+# class ToolUse:
+#     type: str = ContentType.TOOL_USE.value
+#     name: ToolName = ""
+#     params: Dict[ToolParamName, str] = None
+#     partial: bool = True
+
+#     def __post_init__(self):
+#         if self.params is None:
+#             self.params = {}
+
+
+# AssistantMessageContent = Union[TextContent, ToolUse]
+
 
 def parse_assistant_message(
     assistant_message: str,
